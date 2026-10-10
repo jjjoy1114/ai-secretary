@@ -1,3 +1,6 @@
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """
 KOSIS(국가통계포털) OpenAPI 테스트 — 창원시 월별 인구 받아오기
 -------------------------------------------------------------

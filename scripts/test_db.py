@@ -1,3 +1,6 @@
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """Firestore 연결 테스트 — 창고에 한 줄 저장했다가 다시 읽어봅니다."""
 from datetime import datetime
 from firebase_config import db

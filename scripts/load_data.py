@@ -1,8 +1,11 @@
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 """네이버 데이터랩 CSV(1,098행)를 Firestore 'data' 컬렉션에 넣는 코드."""
 import csv
 from firebase_config import db
 
-CSV_PATH = "datalab_data.csv"   # 같은 폴더 안의 데이터 파일
+CSV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "datalab_data.csv")   # 같은 폴더 안의 데이터 파일
 
 count = 0
 batch = db.batch()      # 여러 개를 한 번에 저장하는 '상자'

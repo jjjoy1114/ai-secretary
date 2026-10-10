@@ -11,3 +11,6 @@ __pycache__/
 # === 에디터/기타 ===
 .vscode/
 .DS_Store
+
+# 백업본 (로컬에만 보관, GitHub엔 안 올림)
+backups/
