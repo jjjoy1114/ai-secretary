@@ -6,64 +6,120 @@
 <title>창원 업종 관심도 분석 비서</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
 <style>
   :root{
-    --navy:#1f3864; --blue:#2e5395; --line:#e3e6ee; --bg:#f4f6fb;
-    --card:#ffffff; --text:#222222; --sub:#666666; --th:#eef1f8; --chatbg:#fafbfe;
+    --accent:#6366f1; --accent-h:#4f46e5; --accent-soft:#eef0fe;
+    --bg:#f5f6fa; --card:#ffffff; --text:#1e2330; --sub:#6b7280;
+    --line:#edeef3; --th:#f6f7fb; --chatbg:#f8f9fc;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 6px 20px rgba(16,24,40,.06);
+    --radius:16px;
   }
   body.dark{
-    --navy:#0f1b33; --blue:#5b8dd6; --line:#2a2f3a; --bg:#14171d;
-    --card:#1e222b; --text:#e8eaf0; --sub:#9aa3b2; --th:#232a38; --chatbg:#191d25;
+    --accent:#818cf8; --accent-h:#a5b4fc; --accent-soft:#232a44;
+    --bg:#0f141c; --card:#161c26; --text:#e8eaf2; --sub:#9aa3b5;
+    --line:#242b38; --th:#1b2230; --chatbg:#121822;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4);
   }
   *{ box-sizing:border-box; }
-  body{ margin:0; font-family:"맑은 고딕","Malgun Gothic",sans-serif; background:var(--bg); color:var(--text); transition:.2s; }
-  header{ background:var(--navy); color:#fff; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; }
-  header h1{ margin:0; font-size:18px; }
-  header p{ margin:4px 0 0; font-size:12px; opacity:.85; }
-  .wrap{ max-width:1000px; margin:16px auto; padding:0 14px; display:grid; grid-template-columns:1fr 320px; gap:14px; }
-  @media(max-width:820px){ .wrap{ grid-template-columns:1fr; } }
-  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
-  .card h2{ margin:0 0 10px; font-size:15px; color:var(--blue); }
+  body{ margin:0; font-family:"Pretendard Variable",Pretendard,"맑은 고딕","Malgun Gothic",-apple-system,sans-serif;
+        background:var(--bg); color:var(--text); transition:background .2s,color .2s; -webkit-font-smoothing:antialiased; }
+  header{ background:var(--card); border-bottom:1px solid var(--line); padding:18px 24px;
+          display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:10; box-shadow:0 1px 2px rgba(16,24,40,.03); }
+  header h1{ margin:0; font-size:19px; font-weight:700; letter-spacing:-.3px; }
+  header p{ margin:5px 0 0; font-size:12.5px; color:var(--sub); }
+  .wrap{ max-width:1080px; margin:22px auto; padding:0 18px; display:grid; grid-template-columns:1fr 340px; gap:18px; }
+  @media(max-width:860px){ .wrap{ grid-template-columns:1fr; } }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:18px; margin-bottom:18px; box-shadow:var(--shadow); }
+  .card h2{ margin:0 0 14px; font-size:15px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:7px; }
+  .card h2 > .btn-row, .card h2 > button.mini{ margin-left:auto; }
   #summary table{ width:100%; border-collapse:collapse; font-size:13px; }
-  #summary th,#summary td{ border:1px solid var(--line); padding:6px 8px; text-align:center; }
-  #summary th{ background:var(--th); }
-  .period{ font-size:12px; color:var(--sub); margin-bottom:8px; }
-  #chatBox{ height:300px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--chatbg); }
-  .msg{ margin:6px 0; display:flex; }
+  #summary th,#summary td{ padding:9px 10px; text-align:center; border-bottom:1px solid var(--line); }
+  #summary th{ background:var(--th); color:var(--sub); font-weight:600; }
+  #summary tr:last-child td{ border-bottom:0; }
+  .period{ font-size:12px; color:var(--sub); margin-bottom:10px; }
+  #chatBox{ height:300px; overflow-y:auto; border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--chatbg); }
+  .msg{ margin:7px 0; display:flex; }
   .msg.user{ justify-content:flex-end; }
-  .bubble{ max-width:80%; padding:8px 11px; border-radius:12px; font-size:13px; line-height:1.5; white-space:pre-wrap; }
-  .user .bubble{ background:var(--blue); color:#fff; border-bottom-right-radius:3px; }
-  .ai .bubble{ background:var(--th); color:var(--text); border-bottom-left-radius:3px; }
-  .chat-input{ display:flex; gap:6px; margin-top:8px; }
-  .chat-input input{ flex:1; padding:9px; border:1px solid var(--line); border-radius:8px; font-size:13px; background:var(--card); color:var(--text); }
-  button{ background:var(--blue); color:#fff; border:0; border-radius:8px; padding:9px 14px; font-size:13px; cursor:pointer; }
-  button.ghost{ background:transparent; color:#fff; border:1px solid rgba(255,255,255,.5); }
-  button.mini{ padding:5px 10px; font-size:12px; }
-  button:hover{ opacity:.9; }
-  .conv-item{ padding:8px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; font-size:12px; cursor:pointer; display:flex; justify-content:space-between; gap:6px; align-items:center; }
-  .conv-item:hover{ background:var(--th); }
-  .conv-item .del{ color:#e06; cursor:pointer; }
-  #dataList{ max-height:160px; overflow-y:auto; font-size:12px; }
-  .data-row{ display:flex; justify-content:space-between; padding:4px 6px; border-bottom:1px dashed var(--line); }
-  .data-add{ display:flex; gap:4px; margin-top:8px; flex-wrap:wrap; }
-  .data-add input{ width:31%; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:12px; background:var(--card); color:var(--text); }
-  .hint{ font-size:11px; color:var(--sub); margin-top:4px; }
-  .stat-badge{ font-size:12px; color:var(--sub); margin-top:8px; line-height:1.7; }
+  .bubble{ max-width:80%; padding:9px 13px; border-radius:14px; font-size:13px; line-height:1.55; white-space:pre-wrap; box-shadow:0 1px 2px rgba(16,24,40,.05); }
+  .user .bubble{ background:var(--accent); color:#fff; border-bottom-right-radius:4px; }
+  .ai .bubble{ background:var(--card); border:1px solid var(--line); color:var(--text); border-bottom-left-radius:4px; }
+  body.dark .ai .bubble{ background:var(--th); }
+  .chat-input{ display:flex; gap:8px; margin-top:10px; }
+  .chat-input input{ flex:1; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-size:13px; background:var(--card); color:var(--text); }
+  .chat-input input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  button{ background:var(--accent); color:#fff; border:0; border-radius:10px; padding:10px 15px; font-size:13px; font-weight:600; cursor:pointer; transition:.15s; }
+  button:hover{ background:var(--accent-h); transform:translateY(-1px); }
+  button.ghost{ background:var(--accent-soft); color:var(--accent); }
+  button.ghost:hover{ background:var(--accent-soft); filter:brightness(.97); transform:translateY(-1px); }
+  button.mini{ padding:6px 11px; font-size:12px; background:var(--th); color:var(--sub); }
+  button.mini:hover{ background:var(--accent-soft); color:var(--accent); transform:none; }
+  .conv-item{ padding:10px; border:1px solid var(--line); border-radius:10px; margin-bottom:7px; font-size:12.5px; cursor:pointer; display:flex; justify-content:space-between; gap:6px; align-items:center; transition:.15s; }
+  .conv-item:hover{ background:var(--accent-soft); border-color:transparent; }
+  .conv-item .del{ color:#ef4444; cursor:pointer; font-size:11.5px; }
+  #dataList{ max-height:170px; overflow-y:auto; font-size:12.5px; }
+  .data-row{ display:flex; justify-content:space-between; padding:6px 7px; border-bottom:1px solid var(--line); }
+  .data-add{ display:flex; gap:5px; margin-top:10px; flex-wrap:wrap; }
+  .data-add input{ width:31%; padding:8px; border:1px solid var(--line); border-radius:8px; font-size:12px; background:var(--card); color:var(--text); }
+  .data-add input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .hint{ font-size:11.5px; color:var(--sub); margin-top:6px; font-weight:400; }
+  .stat-badge{ font-size:12px; color:var(--sub); margin-top:10px; line-height:1.8; }
   .btn-row{ display:flex; gap:6px; }
-  /* (보너스) 미리보기 모달 */
-  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:50; }
-  .modal-overlay.show{ display:flex; }
-  .modal-box{ background:var(--card); color:var(--text); width:min(560px,92vw); max-height:80vh; border-radius:12px; display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--line); }
-  .modal-head{ display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid var(--line); }
-  .modal-body{ overflow:auto; padding:10px 14px 14px; }
-  #pvTable{ width:100%; border-collapse:collapse; font-size:13px; }
-  #pvTable th,#pvTable td{ border:1px solid var(--line); padding:5px 8px; text-align:center; }
-  #pvTable th{ background:var(--th); position:sticky; top:0; }
-  .cp-form{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-  .cp-form select,.cp-form input{ padding:8px; border:1px solid var(--line); border-radius:8px; font-size:13px; background:var(--card); color:var(--text); }
+  .cp-form{ display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+  .cp-form select,.cp-form input{ padding:10px; border:1px solid var(--line); border-radius:10px; font-size:13px; background:var(--card); color:var(--text); }
   .cp-form input{ flex:1; min-width:110px; }
-  .cp-result{ margin-top:10px; font-size:13px; line-height:1.7; white-space:pre-wrap; background:var(--chatbg); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:none; }
+  .cp-form select:focus,.cp-form input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .cp-result{ margin-top:12px; font-size:13px; line-height:1.75; white-space:pre-wrap; background:var(--chatbg); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:none; }
   .cp-result.show{ display:block; }
+  .modal-overlay{ position:fixed; inset:0; background:rgba(16,24,40,.5); display:none; align-items:center; justify-content:center; z-index:50; backdrop-filter:blur(2px); }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{ background:var(--card); color:var(--text); width:min(560px,92vw); max-height:80vh; border-radius:var(--radius); display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--line); box-shadow:0 20px 50px rgba(16,24,40,.25); }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--line); font-size:14px; }
+  .modal-body{ overflow:auto; padding:12px 16px 16px; }
+  #pvTable{ width:100%; border-collapse:collapse; font-size:13px; }
+  #pvTable th,#pvTable td{ padding:7px 9px; text-align:center; border-bottom:1px solid var(--line); }
+  #pvTable th{ background:var(--th); color:var(--sub); position:sticky; top:0; font-weight:600; }
+
+  .bubble-ai{ display:flex; gap:10px; align-items:flex-start; }
+  .bubble-ai .face{ font-size:30px; line-height:1; }
+  .bubble-ai .say{ background:var(--accent-soft); border-radius:4px 16px 16px 16px; padding:14px 16px; font-size:14.5px; line-height:1.75; }
+  .sig-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .sig{ border:1px solid var(--line); border-left:6px solid var(--c); border-radius:14px; padding:14px; background:var(--card); }
+  .sig .nm{ font-weight:700; font-size:15px; display:flex; justify-content:space-between; align-items:center; }
+  .sig .lamp{ font-size:12px; font-weight:700; color:var(--c); background:color-mix(in srgb,var(--c) 14%,transparent); padding:3px 9px; border-radius:99px; }
+  .sig .big{ font-size:30px; font-weight:800; margin:8px 0 2px; letter-spacing:-1px; }
+  .sig .sm{ font-size:12px; color:var(--sub); }
+  .sig .todo{ margin-top:10px; font-size:13px; line-height:1.6; }
+  .sig button{ margin-top:10px; width:100%; }
+  .sig.up{ --c:#16a34a; } .sig.flat{ --c:#d97706; } .sig.down{ --c:#dc2626; }
+  .popbar{ font-size:14px; line-height:1.7; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chips button{ background:var(--accent-soft); color:var(--accent); font-size:13px; padding:9px 14px; border-radius:99px; }
+  details.more > summary{ cursor:pointer; font-weight:700; font-size:14px; padding:12px 16px; margin-bottom:12px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); list-style:none; }
+  details.more > summary::-webkit-details-marker{ display:none; }
+  details.more[open] > summary{ color:var(--accent); }
+
+  .wrap{display:block;max-width:760px;padding-bottom:96px} .wrap>div{display:block}
+  .tabhide{display:none!important}
+  details.more>summary{display:none}
+  #chatBox{height:auto;min-height:140px;max-height:46vh}
+  #convList{max-height:150px;overflow:auto}
+  .nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 20px rgba(16,24,40,.08)}
+  .nav button{background:none;color:var(--sub);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;padding:6px 2px;border-radius:12px}
+  .nav button .ic{font-size:21px;line-height:1.1}
+  .nav button.on{color:var(--accent);background:var(--accent-soft)}
+  .nav button.mid .ic{background:var(--accent);color:#fff;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;margin-top:-22px;box-shadow:0 6px 16px rgba(99,102,241,.45);font-size:22px}
+  .nav button.mid.on{background:none}
+  @media(min-width:900px){
+    .nav{left:0;right:auto;top:0;bottom:0;width:92px;grid-template-columns:1fr;align-content:center;gap:10px;border-top:0;border-right:1px solid var(--line);box-shadow:none}
+    .nav button.mid .ic{margin-top:0} body{padding-left:92px} header{position:static}
+  }
+  .avatar{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#818cf8,#6366f1);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.35)}
+  .avatar svg{width:24px;height:24px}
+  .ti{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:9px;background:var(--accent-soft);color:var(--accent)}
+  .ti svg{width:17px;height:17px}
+  .nav button .ic svg{width:22px;height:22px}
+  .nav button.mid .ic svg{width:24px;height:24px}
 </style>
 </head>
 <body>
@@ -77,6 +133,14 @@
 
 <div class="wrap">
   <div>
+    <div class="card"><div class="bubble-ai"><div class="face"><span class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="3.8" r="1"/><circle cx="9" cy="13" r=".7" fill="currentColor"/><circle cx="15" cy="13" r=".7" fill="currentColor"/><path d="M2.5 12.5v2.5M21.5 12.5v2.5M10 16c1.2.7 2.8.7 4 0"/></svg></span></div><div class="say" id="brief">브리핑을 준비하고 있어요…</div></div></div>
+    <div class="card"><h2>🚦 업종별 신호등 <span class="hint">초록=관심 늘어요 · 노랑=비슷해요 · 빨강=줄어요</span></h2><div class="sig-grid" id="sigGrid">불러오는 중…</div></div>
+    <div class="card popbar" id="popBar">👥 창원 인구 정보를 불러오는 중…</div>
+    <div class="card"><h2>💬 말로 물어보세요</h2><div class="chips">
+      <button onclick="ask('요즘 창원에서 어떤 업종 관심이 제일 높아?')">관심 높은 업종은?</button>
+      <button onclick="ask('인구가 줄어드는데 소상공인은 뭘 조심해야 해?')">인구 줄면 어떡해?</button>
+      <button onclick="ask('카페 홍보를 언제 하면 좋을까?')">카페 홍보 언제?</button></div></div>
+    <details class="more"><summary>📊 자세한 표와 그래프 보기</summary>
     <div class="card" id="summary">
       <h2>📊 데이터 요약
         <span style="float:right;" class="btn-row">
@@ -97,8 +161,9 @@
       <div class="stat-badge" id="extraStats">통계 불러오는 중…</div>
     </div>
 
-    <div class="card">
-      <h2>💬 AI 비서와 대화 <button class="mini" style="float:right;" onclick="newChat()">새 대화</button></h2>
+    </details>
+    <div class="card" id="chatCard">
+      <h2><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="3.8" r="1"/><circle cx="9" cy="13" r=".7" fill="currentColor"/><circle cx="15" cy="13" r=".7" fill="currentColor"/><path d="M2.5 12.5v2.5M21.5 12.5v2.5M10 16c1.2.7 2.8.7 4 0"/></svg></span>AI 비서와 대화 <button class="mini" style="float:right;" onclick="newChat()">새 대화</button></h2>
       <div id="chatBox"></div>
       <div class="chat-input">
         <input id="chatInput" placeholder="예: 창원에서 요즘 어떤 업종 관심도가 높아?" onkeydown="if(event.key==='Enter')sendChat()">
@@ -108,7 +173,7 @@
 
     <!-- (마케팅) 콘텐츠 추천 -->
     <div class="card" id="contentPlanCard">
-      <h2>✨ SNS 콘텐츠 추천 <span class="hint" style="font-weight:normal;">데이터 기반 자동 기획</span></h2>
+      <h2><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 3.5a2.1 2.1 0 013 3L8 18l-4.5 1L4.5 14.5z"/><path d="M14.5 5.5l3 3"/><path d="M19 14v4M17 16h4" stroke-width="1.6"/></svg></span>SNS 콘텐츠 추천 <span class="hint" style="font-weight:normal;">데이터 기반 자동 기획</span></h2>
       <div class="cp-form">
         <select id="cpIndustry">
           <option value="카페">카페</option>
@@ -159,7 +224,7 @@
       let html = "<tr><th>업종</th><th>평균</th><th>최대</th><th>최소</th><th>최근추세</th></tr>";
       for(const [name, v] of Object.entries(s.by_industry))
         html += `<tr><td>${name}</td><td>${v.average}</td><td>${v.max}</td><td>${v.min}</td><td>${v.trend}</td></tr>`;
-      document.getElementById("summaryTable").innerHTML = html;
+      document.getElementById("summaryTable").innerHTML = html; renderEasy(s);
     }catch(e){ document.getElementById("period").textContent = "요약을 불러오지 못했어요 (서버 확인)"; }
   }
 
@@ -174,7 +239,7 @@
       const monthsSet = new Set();
       Object.values(s.monthly).forEach(arr => arr.forEach(p => monthsSet.add(p.month)));
       const labels = [...monthsSet].sort();
-      const colors = {"카페":"#2e5395","미용/뷰티":"#e07b39","미용의료":"#3aa06a"};
+      const colors = {"카페":"#6366f1","미용/뷰티":"#f59e0b","미용의료":"#10b981"};
       const datasets = Object.entries(s.monthly).map(([memo, arr])=>{
         const map = Object.fromEntries(arr.map(p=>[p.month, p.avg]));
         return { label:memo, data:labels.map(m=>map[m] ?? null),
@@ -329,10 +394,74 @@
     }catch(e){ box.textContent = "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요."; }
   }
 
+  // ---------- 쉬운 대시보드 ----------
+  const SIG = {"증가":["up","▲ 늘어요","지금 관심이 오르는 중이에요. 이때 콘텐츠를 꾸준히 올려 보세요."],
+               "유지":["flat","▬ 비슷해요","관심이 안정적이에요. 후기·일상 콘텐츠로 단골을 챙기기 좋아요."],
+               "감소":["down","▼ 줄어요","관심이 줄고 있어요. 이벤트·후기로 다시 관심을 불러 보세요."]};
+  function renderEasy(s){
+    const e = Object.entries(s.by_industry).sort((a,b)=>b[1].average-a[1].average);
+    if(!e.length) return;
+    const grp = t => e.filter(([k,v])=>v.trend===t).map(([k])=>k).join(", ");
+    const up = grp("증가"), down = grp("감소");
+    document.getElementById("brief").innerHTML =
+      `안녕하세요! 오늘의 창원 브리핑이에요 🙌<br>지금 검색 관심이 가장 높은 업종은 <b>${e[0][0]}</b>(평균 ${e[0][1].average}점)이에요.`
+      + (up ? `<br>📈 관심이 늘고 있어요: <b>${up}</b>` : "") + (down ? `<br>📉 관심이 줄고 있어요: <b>${down}</b>` : "")
+      + `<br><span class="hint">※ 점수는 0~100 상대 점수예요. 실제 검색 횟수가 아니라 '관심의 높낮이'를 보여줘요.</span>`;
+    document.getElementById("sigGrid").innerHTML = e.map(([k,v])=>{
+      const g = SIG[v.trend] || SIG["유지"];
+      return `<div class="sig ${g[0]}"><div class="nm">${k}<span class="lamp">${g[1]}</span></div>
+        <div class="big">${v.average}</div><div class="sm">평균 관심도 · 최고 ${v.max} / 최저 ${v.min}</div>
+        <div class="todo">👉 ${g[2]}</div><button onclick="planFor('${k}')">콘텐츠 추천 →</button></div>`;
+    }).join("");
+  }
+  async function loadPop(){
+    const b = document.getElementById("popBar");
+    try{
+      const p = await (await fetch(`${API}/api/population/summary`)).json();
+      if(!p.latest){ b.textContent = "👥 인구 데이터가 아직 없어요."; return; }
+      const y = p.change_1year;
+      b.innerHTML = `👥 <b>창원 인구</b>는 ${p.latest.date} 기준 <b>${p.latest.value.toLocaleString()}명</b>이에요.`
+        + (y!=null ? ` 최근 1년간 <b>${y>0?"+":""}${y.toLocaleString()}명</b> 변했어요.` : "")
+        + ` <span class="hint">(출처: ${p.source||"KOSIS"}) 손님 수가 조금씩 줄 수 있어, 단골 관리가 더 중요해져요.</span>`;
+    }catch(e){ b.textContent = "👥 인구 정보를 불러오지 못했어요."; }
+  }
+  function planFor(k){ document.getElementById("cpIndustry").value = k;
+    document.getElementById("contentPlanCard").scrollIntoView({behavior:"smooth"}); getContentPlan(); }
+  function ask(q){ document.getElementById("chatInput").value = q;
+    document.getElementById("chatCard").scrollIntoView({behavior:"smooth"}); sendChat(); }
+
+  // ---------- 하단 5칸 메뉴 ----------
+  const card = id => document.getElementById(id).closest(".card");
+  const moreBox = document.createElement("div"); moreBox.className="card";
+  moreBox.innerHTML = `<h2>⚙️ 설정</h2><div class="btn-row"><button class="ghost" onclick="toggleDark()">🌙 다크모드 켜기/끄기</button><button class="ghost" onclick="window.open(API+'/docs','_blank')">📄 API 문서</button></div>`;
+  document.querySelector(".wrap").lastElementChild.appendChild(moreBox);
+  const histCard = card("convList"); const chatCardEl = document.getElementById("chatCard");
+  chatCardEl.parentNode.insertBefore(histCard, chatCardEl);
+  histCard.querySelector("h2").firstChild.textContent = "🕘 지난 질문 ";
+  const TABS = { home:[card("brief"),card("sigGrid"),card("popBar"),document.querySelector(".chips").closest(".card")],
+                 analysis:[document.querySelector("details.more")], content:[document.getElementById("contentPlanCard")],
+                 chat:[histCard,chatCardEl], more:[card("dataList"),moreBox] };
+  document.querySelector("details.more").open = true;
+  function go(t){
+    for(const [k,els] of Object.entries(TABS)) els.forEach(e=>e.classList.toggle("tabhide",k!==t));
+    document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+    window.scrollTo(0,0);
+    if(t==="analysis" && chart) setTimeout(()=>chart.resize(),50);
+  }
+  function planFor(k){ document.getElementById("cpIndustry").value=k; go("content"); getContentPlan(); }
+  function ask(q){ go("chat"); document.getElementById("chatInput").value=q; sendChat(); }
+
   // ---------- 시작 ----------
-  loadSummary(); loadChart(); loadConversations(); loadData();
+  loadSummary(); loadChart(); loadConversations(); loadData(); loadPop(); go('home');
 </script>
-<div id="previewModal" class="modal-overlay" onclick="if(event.target===this)closePreview()">
+<nav class="nav" id="nav">
+  <button data-t="home" onclick="go('home')"><span class="ic">🏠</span>홈</button>
+  <button data-t="analysis" onclick="go('analysis')"><span class="ic">📊</span>분석</button>
+  <button data-t="content" class="mid" onclick="go('content')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.5 3.5a2.1 2.1 0 013 3L8 18l-4.5 1L4.5 14.5z"/><path d="M14.5 5.5l3 3"/><path d="M19 14v4M17 16h4" stroke-width="1.6"/></svg></span>콘텐츠</button>
+  <button data-t="chat" onclick="go('chat')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="3.8" r="1"/><circle cx="9" cy="13" r=".7" fill="currentColor"/><circle cx="15" cy="13" r=".7" fill="currentColor"/><path d="M2.5 12.5v2.5M21.5 12.5v2.5M10 16c1.2.7 2.8.7 4 0"/></svg></span>비서</button>
+  <button data-t="more" onclick="go('more')"><span class="ic">⋯</span>더보기</button>
+</nav>
+<div id="previewModal class="modal-overlay" onclick="if(event.target===this)closePreview()">
   <div class="modal-box">
     <div class="modal-head"><b>📋 전체 데이터 미리보기 (<span id="pvCount">0</span>건)</b><button class="mini" onclick="closePreview()">닫기 ✕</button></div>
     <div class="modal-body"><table id="pvTable"></table></div>
