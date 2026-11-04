@@ -139,7 +139,8 @@
     <div class="card"><h2>💬 말로 물어보세요</h2><div class="chips">
       <button onclick="ask('요즘 창원에서 어떤 업종 관심이 제일 높아?')">관심 높은 업종은?</button>
       <button onclick="ask('인구가 줄어드는데 소상공인은 뭘 조심해야 해?')">인구 줄면 어떡해?</button>
-      <button onclick="ask('카페 홍보를 언제 하면 좋을까?')">카페 홍보 언제?</button></div></div>
+      <button onclick="ask('카페 홍보를 언제 하면 좋을까?')">카페 홍보 언제?</button>
+      <button onclick="ask('우리 가게 리뷰를 정직하게 늘리는 방법 알려줘')">리뷰 늘리는 방법?</button></div></div>
     <details class="more"><summary>📊 자세한 표와 그래프 보기</summary>
     <div class="card" id="summary">
       <h2>📊 데이터 요약
@@ -182,9 +183,10 @@
         </select>
         <input id="cpSeason" placeholder="시즌(선택) 예: 할로윈">
         <input id="cpChannel" placeholder="채널(선택) 예: 인스타">
+        <input id="cpProduct" placeholder="내 상품/서비스(선택) 예: 수제 케이크, 브런치 세트">
         <button onclick="getContentPlan()">콘텐츠 추천 받기</button>
       </div>
-      <div class="hint">업종을 고르고 버튼을 누르면, 데이터를 근거로 콘텐츠 기획안(제목·본문·발행 시점)이 나와요.</div>
+      <div class="hint">💡 사용 방법: ① 업종을 고르고 ② <b>내 상품/서비스</b>를 적으면(예: 수제 케이크) 내 상품에 맞는 <b>롱테일 키워드</b>가 나와요. ③ 결과 맨 아래에는 정직하게 <b>리뷰를 늘리는 아이디어</b>도 함께 나와요.</div>
       <div id="cpResult" class="cp-result"></div>
     </div>
   </div>
@@ -374,6 +376,7 @@
     const industry = document.getElementById("cpIndustry").value;
     const season = document.getElementById("cpSeason").value.trim();
     const channel = document.getElementById("cpChannel").value.trim();
+    const product = document.getElementById("cpProduct").value.trim();
     const box = document.getElementById("cpResult");
     box.classList.add("show");
     box.textContent = "✍️ 데이터를 분석해 콘텐츠 기획안을 만드는 중… (최대 30초, 서버가 자고 있으면 더 걸려요)";
@@ -381,6 +384,7 @@
       const body = { industry };
       if(season) body.season = season;
       if(channel) body.channel = channel;
+      if(product) body.product = product;
       const d = await (await fetch(`${API}/api/content-plan`,{method:"POST",
         headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)})).json();
       if(d.plan){

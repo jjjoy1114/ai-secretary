@@ -560,6 +560,7 @@ class ContentPlanRequest(BaseModel):
     industry: str                  # 카페 / 미용/뷰티 / 미용의료 (memo 값, 부분입력 OK)
     season: str | None = None      # 예: 할로윈, 연말, 봄 (선택)
     channel: str | None = None     # 예: 인스타, 블로그, 숏폼 (선택)
+    product: str | None = None     # 내 상품/서비스 (선택) — 롱테일 키워드·콘텐츠를 여기에 맞춤
 
 
 @app.post("/api/content-plan")
@@ -598,6 +599,8 @@ def content_plan(req: ContentPlanRequest):
         )
 
         user_ask = f"'{ind}' 업종"
+        product = (req.product or "").strip()
+        prod_text = f"[내 상품/서비스]\n{product}\n\n" if product else "[내 상품/서비스]\n(입력 없음 — 이 업종의 대표 상품 기준으로 작성)\n\n"
         if req.season:
             user_ask += f", 시즌/테마: {req.season}"
         if req.channel:
@@ -619,11 +622,22 @@ def content_plan(req: ContentPlanRequest):
             "   · 해시태그: 3~5개\n"
             "3) 발행 타이밍 요약: 이 업종은 언제(월·요일·시간대) 올리는 게 유리한지 2~3줄\n"
             "4) 창원 맥락 한마디: 인구 흐름을 고려한 조언 1줄\n"
+            "5) 롱테일 키워드 후보 6개: '내 상품/서비스'가 주어지면 그것과 직접 관련된 검색어로, 없으면 이 업종의 대표 상품 기준으로 만드세요. "
+            "'지역(창원 동네명 가능)+상품+상황·목적'처럼 3어절 이상의 구체적인 검색어여야 하고, 홍보 콘텐츠 제목·본문에 그대로 쓸 수 있어야 합니다. "
+            "각 키워드에 [정보형/비교형/방문형] 중 검색 의도를 붙이세요. 검색량·광고 단가·경쟁 강도 수치는 보유 데이터에 없으므로 절대 지어내지 말고, "
+            "'경쟁이 상대적으로 낮을 가능성이 있는 후보'라고만 표현하세요. 마지막 줄에 "
+            "'※ 실제 검색량·광고 단가는 네이버 검색광고 키워드 도구 등으로 확인 후 선택하세요'를 덧붙이세요.\n"
+            "6) 리뷰 확보 아이디어 3개: 실제 손님이 자발적으로 정직한 후기를 남기도록 돕는 방법(예: 결제·수령 시 QR 안내, 방문 후 감사 메시지, "
+            "후기 작성에 대한 소소한 감사 혜택 등)을 각각 '실행 방법 + 손님께 보낼 문구 한 줄'로 제시하세요.\n"
+            "[리뷰 안전 규칙] 맞구매(서로 상품을 사주고 리뷰 쓰기), 가짜·대행 리뷰, 긍정 후기만 요구하는 방식, 경쟁업체 비방은 절대 추천하지 마세요. "
+            "6) 끝에 '맞구매·가짜 리뷰는 플랫폼 정책 위반이며 노출 불이익·처벌 위험이 있어요' 한 줄을 넣고, 혜택을 제공하는 경우 "
+            "협찬·대가 제공 사실을 후기에 표시하도록 안내하세요.\n"
             "※ 요일·시간대는 보유 데이터가 월 단위라서 일반적인 SNS 운영 관행을 참고로 제시하는 것이며, 단정하지 말고 '추천' 톤으로 쓰세요.\n"
         )
         user_prompt = (
             f"[검색 관심도 데이터]\n{facts}\n"
             f"[창원 인구 요약]\n{pop_text}\n\n"
+            f"{prod_text}"
             f"위 데이터를 바탕으로 {user_ask} 에 맞는 SNS 콘텐츠 기획안을 만들어 주세요."
         )
 
@@ -644,6 +658,7 @@ def content_plan(req: ContentPlanRequest):
             "industry": ind,
             "season": req.season,
             "channel": req.channel,
+            "product": product,
             "data_used": {
                 "평균관심도": overall_avg,
                 "성수기": peak,

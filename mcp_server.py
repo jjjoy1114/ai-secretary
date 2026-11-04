@@ -47,7 +47,7 @@ def get_population_summary() -> dict:
 
 
 @mcp.tool()
-def make_content_plan(industry: str, season: str = "", channel: str = "") -> dict:
+def make_content_plan(industry: str, season: str = "", channel: str = "", product: str = "") -> dict:
     """업종 데이터와 창원 인구 맥락을 반영해 SNS 콘텐츠 기획안을 만들어 돌려줍니다.
     '이번 달 무슨 콘텐츠 올릴까', '홍보 아이디어' 같은 요청에 사용하세요.
 
@@ -55,12 +55,15 @@ def make_content_plan(industry: str, season: str = "", channel: str = "") -> dic
       industry: 업종 — 카페 / 미용/뷰티 / 미용의료 (부분 입력 OK)
       season:  (선택) 시즌 — 예) 할로윈, 연말, 봄
       channel: (선택) 채널 — 예) 인스타, 블로그, 숏폼
+      product: (선택) 내 상품/서비스 — 롱테일 키워드·리뷰 확보 아이디어를 여기에 맞춤
     """
     payload = {"industry": industry}
     if season:
         payload["season"] = season
     if channel:
         payload["channel"] = channel
+    if product:
+        payload["product"] = product
     res = requests.post(f"{BASE_URL}/api/content-plan", json=payload, timeout=TIMEOUT)
     res.raise_for_status()
     return res.json()
