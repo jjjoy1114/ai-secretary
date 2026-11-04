@@ -465,7 +465,7 @@
   <button data-t="chat" onclick="go('chat')"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="3.8" r="1"/><circle cx="9" cy="13" r=".7" fill="currentColor"/><circle cx="15" cy="13" r=".7" fill="currentColor"/><path d="M2.5 12.5v2.5M21.5 12.5v2.5M10 16c1.2.7 2.8.7 4 0"/></svg></span>비서</button>
   <button data-t="more" onclick="go('more')"><span class="ic">⋯</span>더보기</button>
 </nav>
-<div id="previewModal class="modal-overlay" onclick="if(event.target===this)closePreview()">
+<div id="previewModal" class="modal-overlay" onclick="if(event.target===this)closePreview()">
   <div class="modal-box">
     <div class="modal-head"><b>📋 전체 데이터 미리보기 (<span id="pvCount">0</span>건)</b><button class="mini" onclick="closePreview()">닫기 ✕</button></div>
     <div class="modal-body"><table id="pvTable"></table></div>
