@@ -1,0 +1,95 @@
+"""검색 관심도('data' 컬렉션) 요약·통계 계산."""
+import statistics as st
+from collections import defaultdict
+
+from config import SUMMARY_RECENT_DAYS
+from firebase_config import db
+
+
+def build_summary():
+    docs = db.collection("data").stream()
+    rows = [doc.to_dict() for doc in docs]
+    if not rows:
+        return None
+
+    rows.sort(key=lambda r: r["date"])
+    dates = [r["date"] for r in rows]
+
+    industries = {}
+    for r in rows:
+        industries.setdefault(r["memo"], []).append(r)
+
+    def summarize(items):
+        items = sorted(items, key=lambda r: r["date"])
+        values = [r["value"] for r in items]
+        n = len(values)
+        avg = round(sum(values) / n, 1)
+        days = SUMMARY_RECENT_DAYS            # 기본 30일 — 환경변수 SUMMARY_RECENT_DAYS로 조정
+        recent = values[-days:]
+        previous = values[-2 * days:-days] if n >= 2 * days else values[:-days]
+        trend = "유지"
+        if previous:
+            r_avg = sum(recent) / len(recent)
+            p_avg = sum(previous) / len(previous)
+            if r_avg > p_avg * 1.05:
+                trend = "증가"
+            elif r_avg < p_avg * 0.95:
+                trend = "감소"
+        return {
+            "count": n,
+            "average": avg,
+            "max": round(max(values), 1),
+            "min": round(min(values), 1),
+            "trend": trend,
+        }
+
+    return {
+        "period": f"{dates[0]} ~ {dates[-1]}",
+        "count": len(rows),
+        "unit": "네이버 데이터랩 상대지수(0~100, 최고=100)",
+        "by_industry": {name: summarize(items) for name, items in industries.items()},
+    }
+
+
+def summary_to_text(summary):
+    lines = [
+        f"- 기간: {summary['period']} (총 {summary['count']}개)",
+        f"- 값 단위: {summary['unit']}",
+    ]
+    for name, s in summary["by_industry"].items():
+        lines.append(
+            f"- {name}: 평균 {s['average']}, 최대 {s['max']}, 최소 {s['min']}, 최근추세 {s['trend']}"
+        )
+    return "\n".join(lines)
+
+
+def build_statistics():
+    """(보너스) 추가 통계 지표 — 업종별 월별 평균(그래프용) + 변동성·격차."""
+    rows = [d.to_dict() for d in db.collection("data").stream()]
+    if not rows:
+        return {"message": "데이터가 없어요"}
+
+    monthly = defaultdict(lambda: defaultdict(list))  # 업종 -> 월 -> [값]
+    by_ind = defaultdict(list)
+    for r in rows:
+        memo = r["memo"]; month = str(r["date"])[:7]; v = float(r["value"])
+        monthly[memo][month].append(v)
+        by_ind[memo].append(v)
+
+    monthly_out = {}
+    for memo, mm in monthly.items():
+        monthly_out[memo] = [
+            {"month": m, "avg": round(sum(vs) / len(vs), 1)} for m, vs in sorted(mm.items())
+        ]
+
+    std_out = {memo: round(st.pstdev(vs), 1) for memo, vs in by_ind.items()}  # 변동성
+    avgs = {memo: sum(vs) / len(vs) for memo, vs in by_ind.items()}
+    gap = round(max(avgs.values()) - min(avgs.values()), 1)                   # 업종간 격차
+    top = max(avgs, key=avgs.get)
+
+    return {
+        "monthly": monthly_out,
+        "변동성_표준편차": std_out,
+        "업종간_평균격차": gap,
+        "최고관심_업종": top,
+    }

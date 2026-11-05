@@ -163,11 +163,14 @@ Firestore는 "컬렉션(서랍) 안에 문서(카드)를 넣는" 데이터베이
 | `firebase_config.py` | DB 연결을 **한 곳**에서만 처리 (다른 파일은 `db`만 가져다 씀) |
 | `kosis_client.py` | 외부 API(KOSIS) 호출을 따로 분리 — 나중에 다른 외부 데이터도 같은 방식으로 추가 |
 | `mcp_server.py` | 다른 채널(Claude Code)용 출입구 — 백엔드를 HTTP로 호출만 함 |
-| `main.py` | API 경로 + 요약 계산 함수 (주석 구분선으로 데이터 / 인구 / 채팅 / 대화 / 에이전트 / 콘텐츠 구역을 나눔) |
+| `main.py` | 앱 시작점 — CORS·오류 안내 설정 후 `routers/`를 붙이기만 함 |
+| `config.py` / `schemas.py` / `errors.py` | 환경변수 설정 / 요청 모델(Pydantic) / 입력 검증 오류를 한글로 안내 |
+| `routers/` | API 경로 — `data` · `population` · `chat`(채팅) · `agent`(에이전트) · `conversations` · `content_plan`(콘텐츠 추천) |
+| `services/` | 계산·외부 연동 — `summary`(요약·통계) · `population`(인구) · `llm`(GPT 호출·대화 저장) · `agent_tools`(도구 호출) |
 | `index.html` | 화면 (바닐라 HTML/CSS/JS) |
 
-- **왜 `main.py` 하나에 두었나** — API가 약 17개인 **작은 규모**라 한 파일에서 흐름을 따라가기 쉽기 때문이에요. 요약 계산(`build_summary`)은 이미 API 경로와 **별도 함수**로 분리해 두어, 규모가 커져도 옮기기 쉽습니다.
-- **커지면** — `routers/`(data · chat · conversations)와 `services/`(summary · population · llm)로 나누는 구조로 확장할 계획입니다.
+- **왜 나눴나** — 처음엔 `main.py` 한 파일(약 760줄)이었지만, 기능이 늘면서 **API 경로(routers)** 와 **계산 로직(services)** 을 분리했어요. 요약 계산은 채팅·에이전트·콘텐츠 기획이 함께 쓰기 때문에 `services/`에 한 번만 두고 가져다 씁니다.
+- **동작은 그대로** — API 주소·요청/응답 형식은 바뀌지 않았어요 (실행: `uvicorn main:app`).
 
 ---
 
@@ -418,7 +421,12 @@ Vercel(프론트)에는 키가 필요 없고, Render(백엔드)의 Environment�
 
 ```
 ai-secretary/
-├─ main.py                # FastAPI 백엔드 (API 전체)
+├─ main.py                # FastAPI 앱 시작점 (설정 + 라우터 연결)
+├─ config.py              # 환경변수 설정 (CORS·추세 기간·토큰 상한)
+├─ schemas.py             # 요청 모델 (입력 검증)
+├─ errors.py              # 입력 오류 한글 안내
+├─ routers/               # API 경로 (data · population · chat · agent · conversations · content_plan)
+├─ services/              # 계산·외부 연동 (summary · population · llm · agent_tools)
 ├─ firebase_config.py     # Firestore 연결
 ├─ kosis_client.py        # KOSIS 인구 API 클라이언트
 ├─ mcp_server.py          # MCP 서버 (멀티채널 — Claude 연동)
