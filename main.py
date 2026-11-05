@@ -1,20 +1,49 @@
 import os
+import logging
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from google.cloud.firestore_v1 import FieldFilter
 from openai import OpenAI
 
 from firebase_config import db
 from kosis_client import fetch_changwon_population, KosisError, MEMO as POP_MEMO
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("ai-secretary")   # 서버 기록(Render의 Logs 화면에서 볼 수 있어요)
+
 app = FastAPI(title="나만의 AI 비서")
+
+
+# ============================================================
+# 설정값 — 환경변수로 바꿀 수 있고, 적지 않으면 기본값을 써요
+#   ALLOWED_ORIGINS    : CORS 허용 주소(쉼표로 여러 개). 기본 "*" = 모두 허용(데모·채점용)
+#   SUMMARY_RECENT_DAYS: 추세 비교에 쓰는 '최근 N일' (기본 30 → 최근30일 vs 그 앞 30일)
+#   MAX_TOKENS         : GPT 답변 길이 상한(비용 보호). 기본 0 = 제한 안 함
+# ============================================================
+def _env_int(name, default):
+    try:
+        return int(os.getenv(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()] or ["*"]
+SUMMARY_RECENT_DAYS = max(1, _env_int("SUMMARY_RECENT_DAYS", 30))
+MAX_TOKENS = _env_int("MAX_TOKENS", 0)
+
+
+def token_limit():
+    """MAX_TOKENS를 정했을 때만 GPT 호출에 길이 상한을 붙여요."""
+    return {"max_completion_tokens": MAX_TOKENS} if MAX_TOKENS > 0 else {}
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,14 +51,64 @@ app.add_middleware(
 
 
 class DataItem(BaseModel):
-    date: str
-    value: float
-    memo: str
+    """데이터 1건 — 서버가 들어오는 값을 먼저 검사해요(Pydantic)."""
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$", description="날짜 (YYYY-MM-DD)", examples=["2026-09-09"])
+    value: float = Field(ge=0, le=100, description="검색 관심도 상대지수 (0~100)", examples=[35.8])
+    memo: str = Field(
+        min_length=1, max_length=30,
+        pattern=r"^[가-힣A-Za-z0-9][가-힣A-Za-z0-9 /·_\-]*$",
+        description="업종 이름 — 한글·영문·숫자·공백·/ 만 허용(첫 글자는 글자나 숫자)",
+        examples=["카페"],
+    )
+
+    @field_validator("date")
+    @classmethod
+    def date_must_exist(cls, v):
+        datetime.strptime(v, "%Y-%m-%d")      # 2026-13-45 같은 없는 날짜는 여기서 걸러져요
+        return v
+
+
+# 검사에 걸렸을 때 영어 대신 알기 쉬운 한글로 알려주기
+FIELD_NAMES = {"date": "날짜", "value": "값", "memo": "업종", "message": "메시지", "industry": "업종",
+               "season": "시즌", "channel": "채널", "product": "상품", "conversation_id": "대화 번호", "messages": "메시지 목록"}
+PATTERN_HINTS = {"date": "형식이 맞지 않아요 (예: 2026-09-09)",
+                 "memo": "한글·영문·숫자·공백·/ 만 쓸 수 있어요 (예: 미용/뷰티)"}
+ERROR_TEXTS = {
+    "missing": "꼭 입력해야 해요",
+    "string_pattern_mismatch": "형식이 맞지 않아요 (예: 2026-09-09)",
+    "greater_than_equal": "0 이상이어야 해요",
+    "less_than_equal": "100 이하여야 해요",
+    "string_too_short": "비워둘 수 없어요",
+    "string_too_long": "너무 길어요",
+    "float_parsing": "숫자로 적어 주세요",
+    "string_type": "글자로 적어 주세요",
+    "value_error": "올바른 값이 아니에요 (날짜라면 실제 있는 날짜로, 예: 2026-09-09)",
+    "too_long": "항목이 너무 많아요",
+}
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    problems = []
+    for e in exc.errors():
+        loc = [str(x) for x in e.get("loc", []) if x not in ("body", "query", "path")]
+        name = FIELD_NAMES.get(loc[-1], loc[-1]) if loc else "입력"
+        if e.get("type") == "string_pattern_mismatch":
+            text = PATTERN_HINTS.get(loc[-1] if loc else "", "허용되지 않는 글자가 있어요")
+        else:
+            text = ERROR_TEXTS.get(e.get("type"), str(e.get("msg", "확인이 필요해요")))
+        problems.append(f"{name}: {text}")
+    # 서버 기록에는 '어떤 칸이 왜 걸렸는지'만 남겨요 (입력한 내용·질문 본문은 남기지 않아요)
+    logger.warning("입력 검증 실패 %s %s → %s", request.method, request.url.path, " / ".join(problems))
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "입력값을 확인해 주세요 → " + " / ".join(problems), "errors": problems},
+    )
 
 
 class ChatRequest(BaseModel):
-    message: str
-    conversation_id: str | None = None
+    message: str = Field(min_length=1, max_length=1000, description="질문 (1~1,000자)")
+    conversation_id: str | None = Field(default=None, max_length=100)
 
 
 @app.get("/")
@@ -58,8 +137,9 @@ def build_summary():
         values = [r["value"] for r in items]
         n = len(values)
         avg = round(sum(values) / n, 1)
-        recent = values[-30:]
-        previous = values[-60:-30] if n >= 60 else values[:-30]
+        days = SUMMARY_RECENT_DAYS            # 기본 30일 — 환경변수 SUMMARY_RECENT_DAYS로 조정
+        recent = values[-days:]
+        previous = values[-2 * days:-days] if n >= 2 * days else values[:-days]
         trend = "유지"
         if previous:
             r_avg = sum(recent) / len(recent)
@@ -288,6 +368,7 @@ def chat(req: ChatRequest):
         completion = client.chat.completions.create(
             model="gpt-5-mini",     # 코디세이 콘솔에서 사용 가능한 모델
             messages=messages,
+            **token_limit(),
         )
         reply = completion.choices[0].message.content
 
@@ -319,7 +400,7 @@ def chat(req: ChatRequest):
 # 대화기록 API — 저장된 대화를 목록/불러오기/삭제
 # ============================================================
 class ConversationCreate(BaseModel):
-    messages: list  # [{"role": "...", "content": "..."} , ...]
+    messages: list = Field(max_length=200)  # [{"role": "...", "content": "..."} , ...] (최대 200개)
 
 
 # (목록) 저장된 대화 목록 보기 (최신순, 제목=첫 질문)
@@ -507,6 +588,7 @@ def agent(req: ChatRequest):
                 model="gpt-5-mini",
                 messages=messages,
                 tools=AGENT_TOOLS,
+                **token_limit(),
             )
             msg = completion.choices[0].message
 
@@ -557,10 +639,10 @@ def agent(req: ChatRequest):
 #   GPT에 주입해 SNS 콘텐츠·마케팅 기획안을 자동 생성한다. (SNS 대행 영업용)
 # ============================================================
 class ContentPlanRequest(BaseModel):
-    industry: str                  # 카페 / 미용/뷰티 / 미용의료 (memo 값, 부분입력 OK)
-    season: str | None = None      # 예: 할로윈, 연말, 봄 (선택)
-    channel: str | None = None     # 예: 인스타, 블로그, 숏폼 (선택)
-    product: str | None = None     # 내 상품/서비스 (선택) — 롱테일 키워드·콘텐츠를 여기에 맞춤
+    industry: str = Field(min_length=1, max_length=30)          # 카페 / 미용/뷰티 / 미용의료 (memo 값, 부분입력 OK)
+    season: str | None = Field(default=None, max_length=30)     # 예: 할로윈, 연말, 봄 (선택)
+    channel: str | None = Field(default=None, max_length=30)    # 예: 인스타, 블로그, 숏폼 (선택)
+    product: str | None = Field(default=None, max_length=100)   # 내 상품/서비스 (선택) — 롱테일 키워드·콘텐츠를 여기에 맞춤
 
 
 @app.post("/api/content-plan")
@@ -651,6 +733,7 @@ def content_plan(req: ContentPlanRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            **token_limit(),
         )
         plan = completion.choices[0].message.content
 

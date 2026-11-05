@@ -120,6 +120,9 @@
   .ti svg{width:17px;height:17px}
   .nav button .ic svg{width:22px;height:22px}
   .nav button.mid .ic svg{width:24px;height:24px}
+  .data-msg{ margin-top:6px; font-size:12.5px; line-height:1.5; min-height:18px; }
+  .data-msg.ok{ color:#16a34a; font-weight:600; }
+  .data-msg.err{ color:#dc2626; font-weight:600; }
 </style>
 </head>
 <body>
@@ -205,7 +208,8 @@
         <input id="dMemo" placeholder="업종 카페">
       </div>
       <button style="margin-top:6px;width:100%;" onclick="addData()">데이터 추가</button>
-      <div class="hint">최근 20개만 표시돼요. 추가/삭제하면 요약·그래프도 바뀝니다.</div>
+      <div id="dataMsg" class="data-msg" role="status" aria-live="polite"></div>
+      <div class="hint">최근 20개만 표시돼요. 추가/삭제하면 요약·그래프도 바뀝니다. (날짜는 2025-09-09처럼, 값은 0~100 사이 숫자)</div>
     </div>
   </div>
 </div>
@@ -214,6 +218,9 @@
   const API = "https://ai-secretary-07fk.onrender.com";  // ★ 배포 시 이 주소만 Render 주소로 교체
   let conversationId = null;
   let chart = null;
+
+  // 화면에 끼워 넣기 전에 특수문자(& < > " ')를 안전한 글자로 바꿔요 (XSS 방지)
+  function esc(v){ return String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
   // ---------- 다크모드 (보너스) ----------
   function toggleDark(){ document.body.classList.toggle('dark'); if(chart) loadChart(); }
@@ -225,7 +232,7 @@
       document.getElementById("period").textContent = `기간: ${s.period} · 총 ${s.count}개 · ${s.unit}`;
       let html = "<tr><th>업종</th><th>평균</th><th>최대</th><th>최소</th><th>최근추세</th></tr>";
       for(const [name, v] of Object.entries(s.by_industry))
-        html += `<tr><td>${name}</td><td>${v.average}</td><td>${v.max}</td><td>${v.min}</td><td>${v.trend}</td></tr>`;
+        html += `<tr><td>${esc(name)}</td><td>${esc(v.average)}</td><td>${esc(v.max)}</td><td>${esc(v.min)}</td><td>${esc(v.trend)}</td></tr>`;
       document.getElementById("summaryTable").innerHTML = html; renderEasy(s);
     }catch(e){ document.getElementById("period").textContent = "요약을 불러오지 못했어요 (서버 확인)"; }
   }
@@ -236,8 +243,8 @@
       const s = await (await fetch(`${API}/api/data/statistics`)).json();
       const std = s["변동성_표준편차"] || {};
       document.getElementById("extraStats").innerHTML =
-        `📌 추가지표 — 업종간 평균격차: <b>${s["업종간_평균격차"]}</b> · 최고관심: <b>${s["최고관심_업종"]}</b><br>`
-        + `변동성(표준편차): ` + Object.entries(std).map(([k,v])=>`${k} ${v}`).join(" · ");
+        `📌 추가지표 — 업종간 평균격차: <b>${esc(s["업종간_평균격차"])}</b> · 최고관심: <b>${esc(s["최고관심_업종"])}</b><br>`
+        + `변동성(표준편차): ` + Object.entries(std).map(([k,v])=>`${esc(k)} ${esc(v)}`).join(" · ");
       const monthsSet = new Set();
       Object.values(s.monthly).forEach(arr => arr.forEach(p => monthsSet.add(p.month)));
       const labels = [...monthsSet].sort();
@@ -288,7 +295,7 @@
         body:JSON.stringify({message:msg, conversation_id:conversationId})})).json();
       if(d.reply){ conversationId=d.conversation_id; loading.querySelector(".bubble").textContent=d.reply; loadConversations(); }
       else loading.querySelector(".bubble").textContent="오류: "+(d.detail||"알 수 없음");
-    }catch(e){ loading.querySelector(".bubble").textContent="서버에 연결하지 못했어요."; }
+    }catch(e){ loading.querySelector(".bubble").textContent="서버에 연결하지 못했어요. 무료 서버가 깨어나는 중일 수 있어요 — 30초~1분 뒤 다시 질문해 주세요."; }
   }
   function newChat(){ conversationId=null; document.getElementById("chatBox").innerHTML=""; }
 
@@ -301,7 +308,7 @@
       box.innerHTML="";
       d.items.forEach(c=>{
         const el=document.createElement("div"); el.className="conv-item";
-        el.innerHTML=`<span>💬 ${c.title||"(빈 대화)"}</span><span class="del">삭제</span>`;
+        el.innerHTML=`<span>💬 ${esc(c.title||"(빈 대화)")}</span><span class="del">삭제</span>`;
         el.querySelector("span").onclick=()=>loadConversation(c.id);
         el.querySelector(".del").onclick=(ev)=>{ev.stopPropagation(); deleteConversation(c.id);};
         box.appendChild(el);
@@ -325,24 +332,42 @@
       const box=document.getElementById("dataList"); box.innerHTML="";
       d.items.forEach(it=>{
         const row=document.createElement("div"); row.className="data-row";
-        row.innerHTML=`<span>${it.date} · ${it.memo} · ${it.value}</span><span class="del" style="color:#e06;cursor:pointer;">✕</span>`;
+        row.innerHTML=`<span>${esc(it.date)} · ${esc(it.memo)} · ${esc(it.value)}</span><span class="del" style="color:#e06;cursor:pointer;">✕</span>`;
         row.querySelector(".del").onclick=()=>deleteData(it.id);
         box.appendChild(row);
       });
     }catch(e){ document.getElementById("dataList").textContent="불러오지 못했어요."; }
   }
+  // 저장·삭제 결과를 버튼 아래에 5초간 보여주기 (성공 초록 / 실패 빨강)
+  function showDataMsg(text, ok){
+    const el=document.getElementById("dataMsg"); if(!el) return;
+    el.textContent=text; el.className="data-msg "+(ok?"ok":"err");
+    clearTimeout(showDataMsg._t);
+    showDataMsg._t=setTimeout(()=>{ el.textContent=""; el.className="data-msg"; },5000);
+  }
+  const SLEEP_HINT="서버에 연결하지 못했어요. 무료 서버가 깨어나는 중일 수 있어요 — 30초~1분 뒤 다시 시도해 주세요.";
   async function addData(){
     const date=document.getElementById("dDate").value.trim();
     const value=parseFloat(document.getElementById("dValue").value);
     const memo=document.getElementById("dMemo").value.trim();
-    if(!date||isNaN(value)||!memo){ alert("날짜·값·업종을 모두 입력해 주세요."); return; }
-    await fetch(`${API}/api/data`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date,value,memo})});
-    dDate.value=""; dValue.value=""; dMemo.value="";
-    loadData(); loadSummary(); loadChart();
+    if(!date||isNaN(value)||!memo){ showDataMsg("날짜·값·업종을 모두 입력해 주세요.", false); return; }
+    try{
+      const res=await fetch(`${API}/api/data`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date,value,memo})});
+      const d=await res.json().catch(()=>({}));
+      if(!res.ok){ showDataMsg(typeof d.detail==="string" ? d.detail : "저장하지 못했어요. 입력값을 확인해 주세요.", false); return; }
+      showDataMsg(`✅ 저장했어요 (${date} · ${memo} · ${value})`, true);
+      dDate.value=""; dValue.value=""; dMemo.value="";
+      loadData(); loadSummary(); loadChart();
+    }catch(e){ showDataMsg(SLEEP_HINT, false); }
   }
   async function deleteData(id){
-    await fetch(`${API}/api/data/${id}`,{method:"DELETE"});
-    loadData(); loadSummary(); loadChart();
+    try{
+      const res=await fetch(`${API}/api/data/${id}`,{method:"DELETE"});
+      const d=await res.json().catch(()=>({}));
+      if(!res.ok){ showDataMsg(typeof d.detail==="string" ? d.detail : "삭제하지 못했어요.", false); return; }
+      showDataMsg("🗑️ 삭제했어요", true);
+      loadData(); loadSummary(); loadChart();
+    }catch(e){ showDataMsg(SLEEP_HINT, false); }
   }
 
   // ---------- 미리보기 표 + 엑셀 내보내기 (보너스) ----------
@@ -352,7 +377,7 @@
       const items = (d.items||[]).slice().sort((a,b)=> (a.memo+a.date).localeCompare(b.memo+b.date));
       document.getElementById("pvCount").textContent = items.length;
       let html = "<tr><th>날짜</th><th>값(관심도)</th><th>업종</th></tr>";
-      items.forEach(i => html += `<tr><td>${i.date}</td><td>${i.value}</td><td>${i.memo}</td></tr>`);
+      items.forEach(i => html += `<tr><td>${esc(i.date)}</td><td>${esc(i.value)}</td><td>${esc(i.memo)}</td></tr>`);
       document.getElementById("pvTable").innerHTML = html;
       document.getElementById("previewModal").classList.add("show");
     }catch(e){ alert("미리보기 실패 (서버 확인)"); }
@@ -408,15 +433,16 @@
     const grp = t => e.filter(([k,v])=>v.trend===t).map(([k])=>k).join(", ");
     const up = grp("증가"), down = grp("감소");
     document.getElementById("brief").innerHTML =
-      `안녕하세요! 오늘의 창원 브리핑이에요 🙌<br>지금 검색 관심이 가장 높은 업종은 <b>${e[0][0]}</b>(평균 ${e[0][1].average}점)이에요.`
-      + (up ? `<br>📈 관심이 늘고 있어요: <b>${up}</b>` : "") + (down ? `<br>📉 관심이 줄고 있어요: <b>${down}</b>` : "")
+      `안녕하세요! 오늘의 창원 브리핑이에요 🙌<br>지금 검색 관심이 가장 높은 업종은 <b>${esc(e[0][0])}</b>(평균 ${esc(e[0][1].average)}점)이에요.`
+      + (up ? `<br>📈 관심이 늘고 있어요: <b>${esc(up)}</b>` : "") + (down ? `<br>📉 관심이 줄고 있어요: <b>${esc(down)}</b>` : "")
       + `<br><span class="hint">※ 점수는 0~100 상대 점수예요. 실제 검색 횟수가 아니라 '관심의 높낮이'를 보여줘요.</span>`;
     document.getElementById("sigGrid").innerHTML = e.map(([k,v])=>{
       const g = SIG[v.trend] || SIG["유지"];
-      return `<div class="sig ${g[0]}"><div class="nm">${k}<span class="lamp">${g[1]}</span></div>
-        <div class="big">${v.average}</div><div class="sm">평균 관심도 · 최고 ${v.max} / 최저 ${v.min}</div>
-        <div class="todo">👉 ${g[2]}</div><button onclick="planFor('${k}')">콘텐츠 추천 →</button></div>`;
+      return `<div class="sig ${g[0]}"><div class="nm">${esc(k)}<span class="lamp">${g[1]}</span></div>
+        <div class="big">${esc(v.average)}</div><div class="sm">평균 관심도 · 최고 ${esc(v.max)} / 최저 ${esc(v.min)}</div>
+        <div class="todo">👉 ${g[2]}</div><button class="plan-btn" data-k="${esc(k)}">콘텐츠 추천 →</button></div>`;
     }).join("");
+    document.querySelectorAll("#sigGrid .plan-btn").forEach(b => { b.onclick = () => planFor(b.dataset.k); });
   }
   async function loadPop(){
     const b = document.getElementById("popBar");
@@ -424,7 +450,7 @@
       const p = await (await fetch(`${API}/api/population/summary`)).json();
       if(!p.latest){ b.textContent = "👥 인구 데이터가 아직 없어요."; return; }
       const y = p.change_1year;
-      b.innerHTML = `👥 <b>창원 인구</b>는 ${p.latest.date} 기준 <b>${p.latest.value.toLocaleString()}명</b>이에요.`
+      b.innerHTML = `👥 <b>창원 인구</b>는 ${esc(p.latest.date)} 기준 <b>${p.latest.value.toLocaleString()}명</b>이에요.`
         + (y!=null ? ` 최근 1년간 <b>${y>0?"+":""}${y.toLocaleString()}명</b> 변했어요.` : "")
         + ` <span class="hint">(출처: ${p.source||"KOSIS"}) 손님 수가 조금씩 줄 수 있어, 단골 관리가 더 중요해져요.</span>`;
     }catch(e){ b.textContent = "👥 인구 정보를 불러오지 못했어요."; }
