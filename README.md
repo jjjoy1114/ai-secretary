@@ -369,6 +369,8 @@ MCP 도구: `get_search_summary` · `get_statistics` · `get_population_summary`
 
 ## 💻 로컬 실행 방법
 
+> 사전 준비: **Python 3.10 이상**과 가상환경(`venv`)을 사용합니다. 패키지는 아래 2)번에서 `requirements.txt`로 설치해요.
+
 ```bash
 # 0) 환경변수 파일 만들기 — .env.example 을 복사해 .env 로 이름을 바꾸고 값을 채우기
 # 1) 가상환경 활성화
@@ -411,7 +413,7 @@ claude mcp list        # ai-secretary ✓ Connected
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | ✅ (배포) | Firebase 서비스계정 키 **JSON 전체 내용** | 지시서의 `FIREBASE_SERVICE_ACCOUNT_JSON` |
 | `ALLOWED_ORIGINS` | 선택 | CORS 허용 주소(쉼표로 여러 개). 비우면 `*`(모두 허용). **배포(Render)에는 Vercel 주소만 넣어 제한**했습니다 | 지시서의 `ALLOWED_ORIGINS` |
 | `SUMMARY_RECENT_DAYS` | 선택 | 추세 비교 기간 (기본 `30` = 최근 30일 vs 그 앞 30일) | 요약 기준 조정용 |
-| `MAX_TOKENS` | 선택 | GPT 답변 길이 상한 (기본 `0` = 제한 없음, 배포 설정 예: `6000`). `gpt-5-mini`는 답하기 전 "생각"에도 토큰을 써서 너무 작게 잡으면 빈 답변이 옵니다 | 지시서의 비용·토큰 제한 안내 |
+| `MAX_TOKENS` | 선택 | GPT 답변 길이 상한 (기본 `6000`, `0`으로 두면 제한 없음). `gpt-5-mini`는 답하기 전 "생각"에도 토큰을 써서 너무 작게 잡으면 빈 답변이 옵니다 | 지시서의 비용·토큰 제한 안내 |
 
 - **프론트→백엔드 주소(`API_BASE_URL`)** — 프론트는 빌드 과정이 없는 **정적 HTML**이라 환경변수 대신 `index.html` 위쪽의 `const API = "…"` **한 줄**로 관리합니다. 배포할 때 이 값을 Render 주소로 바꿉니다.
 - **견본 파일** — `.env.example`을 복사해 `.env`로 이름을 바꾸고 값을 채우세요. (`.env`는 GitHub에 올라가지 않습니다.)
