@@ -38,6 +38,7 @@
   #summary th{ background:var(--th); color:var(--sub); font-weight:600; }
   #summary tr:last-child td{ border-bottom:0; }
   .period{ font-size:12px; color:var(--sub); margin-bottom:10px; }
+  .ctx-badge{ font-size:12px; color:var(--sub); background:var(--chatbg); border:1px solid var(--line); border-radius:999px; padding:4px 10px; margin-bottom:8px; display:inline-block; }
   #chatBox{ height:300px; overflow-y:auto; border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--chatbg); }
   .msg{ margin:7px 0; display:flex; }
   .msg.user{ justify-content:flex-end; }
@@ -168,6 +169,7 @@
     </details>
     <div class="card" id="chatCard">
       <h2><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="4"/><path d="M12 8V5"/><circle cx="12" cy="3.8" r="1"/><circle cx="9" cy="13" r=".7" fill="currentColor"/><circle cx="15" cy="13" r=".7" fill="currentColor"/><path d="M2.5 12.5v2.5M21.5 12.5v2.5M10 16c1.2.7 2.8.7 4 0"/></svg></span>AI 비서와 대화 <button class="mini" style="float:right;" onclick="newChat()">새 대화</button></h2>
+      <div class="ctx-badge" id="ctxBadge">📌 요약 데이터 불러오는 중…</div>
       <div id="chatBox"></div>
       <div class="chat-input">
         <input id="chatInput" placeholder="예: 창원에서 요즘 어떤 업종 관심도가 높아?" onkeydown="if(event.key==='Enter')sendChat()">
@@ -230,11 +232,12 @@
     try{
       const s = await (await fetch(`${API}/api/data/summary`)).json();
       document.getElementById("period").textContent = `기간: ${s.period} · 총 ${s.count}개 · ${s.unit}`;
+      document.getElementById("ctxBadge").textContent = `📌 AI가 이 요약을 보고 답해요 · ${s.period} · ${s.count}개 · 추세 비교 최근 ${s.recent_days}일`;
       let html = "<tr><th>업종</th><th>평균</th><th>최대</th><th>최소</th><th>최근추세</th></tr>";
       for(const [name, v] of Object.entries(s.by_industry))
         html += `<tr><td>${esc(name)}</td><td>${esc(v.average)}</td><td>${esc(v.max)}</td><td>${esc(v.min)}</td><td>${esc(v.trend)}</td></tr>`;
       document.getElementById("summaryTable").innerHTML = html; renderEasy(s);
-    }catch(e){ document.getElementById("period").textContent = "요약을 불러오지 못했어요 (서버 확인)"; }
+    }catch(e){ document.getElementById("period").textContent = "요약을 불러오지 못했어요 (서버 확인)"; document.getElementById("ctxBadge").textContent = "📌 요약을 아직 불러오지 못했어요"; }
   }
 
   // ---------- 그래프 + 추가통계 (보너스) ----------

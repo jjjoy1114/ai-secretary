@@ -1,5 +1,5 @@
 """검색 관심도 데이터 API — 요약 / 통계 / CRUD."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from google.cloud.firestore_v1 import FieldFilter
 
 from firebase_config import db
@@ -10,8 +10,8 @@ router = APIRouter()
 
 
 @router.get("/api/data/summary")
-def get_summary():
-    summary = build_summary()
+def get_summary(days: int | None = Query(default=None, ge=1, le=365, description="추세 비교 기간(일). 비우면 기본값 30")):
+    summary = build_summary(days)
     if summary is None:
         return {"message": "아직 데이터가 없어요"}
     return summary

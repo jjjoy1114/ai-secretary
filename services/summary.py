@@ -1,12 +1,15 @@
 """검색 관심도('data' 컬렉션) 요약·통계 계산."""
 import statistics as st
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 
 from config import SUMMARY_RECENT_DAYS
 from firebase_config import db
 
 
-def build_summary():
+def build_summary(days=None):
+    """days: 추세 비교 기간(일). 안 주면 환경변수 SUMMARY_RECENT_DAYS(기본 30)를 써요."""
+    days = days or SUMMARY_RECENT_DAYS
     docs = db.collection("data").stream()
     rows = [doc.to_dict() for doc in docs]
     if not rows:
@@ -24,7 +27,6 @@ def build_summary():
         values = [r["value"] for r in items]
         n = len(values)
         avg = round(sum(values) / n, 1)
-        days = SUMMARY_RECENT_DAYS            # 기본 30일 — 환경변수 SUMMARY_RECENT_DAYS로 조정
         recent = values[-days:]
         previous = values[-2 * days:-days] if n >= 2 * days else values[:-days]
         trend = "유지"
@@ -46,6 +48,8 @@ def build_summary():
     return {
         "period": f"{dates[0]} ~ {dates[-1]}",
         "count": len(rows),
+        "recent_days": days,      # 추세를 비교한 기간(최근 N일 vs 그 앞 N일)
+        "generated_at": datetime.now(timezone(timedelta(hours=9))).isoformat(timespec="seconds"),  # 요약을 만든 시각(KST)
         "unit": "네이버 데이터랩 상대지수(0~100, 최고=100)",
         "by_industry": {name: summarize(items) for name, items in industries.items()},
     }
