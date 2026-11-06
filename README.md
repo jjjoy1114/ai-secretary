@@ -76,6 +76,23 @@ Firestore는 "컬렉션(서랍) 안에 문서(카드)를 넣는" 데이터베이
 - 🔧 **개선 방향** — `messages`를 하위 컬렉션으로 분리하고, 목록용 `title` / `count`를 문서에 따로 저장하면 됩니다.
 - 📌 **지시서의 "대화 불러오기" 방식** — **(A) 방식**입니다. `GET /api/conversations` 목록에는 `id` / `title`(첫 질문 30자) / `updated_at` / `count`만 있고 **messages는 포함하지 않으며**, 한 대화의 전체 메시지는 `GET /api/conversations/{id}`로 불러옵니다.
 
+### 🗂️ 컬렉션 문서 예시
+
+```json
+// data/{자동 id} — 관심도 1건
+{ "date": "2026-09-09", "value": 72.5, "memo": "카페" }
+
+// conversations/{id} — 대화 1건
+{
+  "messages": [
+    { "role": "user", "content": "요즘 어떤 업종 관심도가 높아?" },
+    { "role": "assistant", "content": "최근 30일 기준 카페가 가장 높습니다." }
+  ],
+  "created_at": "2026-09-09T10:00:00+09:00",
+  "updated_at": "2026-09-09T10:01:12+09:00"
+}
+```
+
 ### 📚 인덱스 · 보존 정책
 | 항목 | 내용 |
 |---|---|
@@ -119,7 +136,7 @@ Firestore는 "컬렉션(서랍) 안에 문서(카드)를 넣는" 데이터베이
 - **콘텐츠 추천** — 업종·계절·채널·**내 상품**을 넣으면 홍보 기획안 + 롱테일 키워드 6개 + 리뷰 확보 아이디어 3개(`/api/content-plan`)
 - **쉬운 대시보드** — 비서 브리핑 말풍선, 업종별 신호등(증가/유지/감소), 하단 5칸 메뉴(🏠홈 · 📊분석 · ✨콘텐츠 · 💬비서 · ⋯더보기)
 - **모바일 반응형** — 화면 너비 860px 이하에서는 한 줄(1열) 배치로 바뀌고, 하단 5칸 메뉴를 손가락으로 누르기 쉽게 크게 두었습니다. 휴대폰 너비(375px)에서 홈·분석·콘텐츠 화면이 가로 스크롤 없이 보이는 것을 직접 확인했어요.
-- **요약 길이 조절** — GPT에 넣는 요약은 업종별 숫자 몇 줄뿐이라 데이터가 늘어도 길이가 거의 같고, 비교 기간은 `SUMMARY_RECENT_DAYS`(기본 30일)로, 답변 길이는 `MAX_TOKENS`로 조절합니다. 요약은 `/api/data/summary`(기본)와 `/api/data/statistics`(추가 지표)로 **가볍게/자세히** 나눠 쓰고, 두 주소는 다른 기능(채팅·MCP·화면)이 함께 재사용합니다.
+- **요약 길이 조절** — GPT에 넣는 요약은 업종별 숫자 몇 줄뿐이라 데이터가 늘어도 길이가 거의 같고, 비교 기간은 `SUMMARY_RECENT_DAYS`(기본 30일)로, 답변 길이는 `MAX_TOKENS`로 조절합니다. 추세는 **최근 N일 평균이 직전 N일 평균보다 5% 넘게 높으면 증가, 5% 넘게 낮으면 감소, 그 사이면 유지**로 판정합니다(±5%). 요약은 `/api/data/summary`(기본)와 `/api/data/statistics`(추가 지표)로 **가볍게/자세히** 나눠 쓰고, 두 주소는 다른 기능(채팅·MCP·화면)이 함께 재사용합니다.
 
 ---
 
@@ -419,6 +436,15 @@ claude mcp list        # ai-secretary ✓ Connected
 - **견본 파일** — `.env.example`을 복사해 `.env`로 이름을 바꾸고 값을 채우세요. (`.env`는 GitHub에 올라가지 않습니다.)
 
 Vercel(프론트)에는 키가 필요 없고, Render(백엔드)의 Environment에 위 값을 넣습니다.
+
+**Render 환경변수 설정 순서**
+
+1. Render 대시보드 → 해당 서비스(`ai-secretary`) → 왼쪽 **Environment**
+2. **Add variable**로 `CODYSSEY_API_KEY`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `KOSIS_API_KEY`, `ALLOWED_ORIGINS`(Vercel 주소), `MAX_TOKENS`(`6000`)를 입력
+3. **Save, rebuild, and deploy**를 눌러 재배포 → Deploys 탭에서 `Live` 확인
+
+![Render Environment 설정 (값은 가려짐, MAX_TOKENS=6000)](docs/images/25_render_environment.png)
+
 
 > 🔒 API 키·서비스계정 키 파일은 `.gitignore`로 GitHub에 올라가지 않으며, 코드에는 **환경변수로만** 사용합니다.
 > 제출 스크린샷은 키가 보이는 화면을 제외했습니다.
