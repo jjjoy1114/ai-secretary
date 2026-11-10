@@ -8,11 +8,6 @@
 
 > AI 응용 학습 **M1-2** 개인 과제 — "AI Agent 개발: 나만의 AI 비서"
 
-> 🔗 **배포 주소 한눈에 보기**
-> 프론트엔드(Vercel) → https://ai-secretary-omega-eight.vercel.app
-> 백엔드 API(Render) → https://ai-secretary-07fk.onrender.com
-> Swagger(API 문서) → https://ai-secretary-07fk.onrender.com/docs
-
 ### ✅ 과제 수행 범위
 
 | 구분 | 수행 여부 |
