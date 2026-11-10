@@ -3,11 +3,13 @@ GPT에 주입해 SNS 콘텐츠·마케팅 기획안을 자동 생성한다. (SNS
 """
 from fastapi import APIRouter, HTTPException
 
-from config import token_limit
+from config import logger, token_limit
 from schemas import ContentPlanRequest
 from services.llm import MODEL, get_client
 from services.population import build_population_summary, population_summary_to_text
+from services.search_trend import load_timing_summary
 from services.summary import build_statistics
+from services.timing import timing_to_text
 
 router = APIRouter()
 
@@ -39,6 +41,14 @@ def content_plan(req: ContentPlanRequest):
 
         pop = build_population_summary()
         pop_text = population_summary_to_text(pop) if pop else "- (인구 데이터 없음)"
+
+        # 발행 타이밍 근거(3년 검색관심도) — 없거나 문제가 있어도 기획안은 기존 방식대로 만들어요
+        try:
+            timing_text = timing_to_text(load_timing_summary(), ind)
+        except Exception as e:
+            logger.warning("발행 타이밍 근거를 불러오지 못했어요: %s", type(e).__name__)
+            timing_text = ""
+        timing_block = f"[발행 타이밍 근거 — 3년 검색관심도 분석]\n{timing_text}\n\n" if timing_text else ""
 
         facts = (
             f"- 업종: {ind}\n"
@@ -81,11 +91,14 @@ def content_plan(req: ContentPlanRequest):
             "[리뷰 안전 규칙] 맞구매(서로 상품을 사주고 리뷰 쓰기), 가짜·대행 리뷰, 긍정 후기만 요구하는 방식, 경쟁업체 비방은 절대 추천하지 마세요. "
             "6) 끝에 '맞구매·가짜 리뷰는 플랫폼 정책 위반이며 노출 불이익·처벌 위험이 있어요' 한 줄을 넣고, 혜택을 제공하는 경우 "
             "협찬·대가 제공 사실을 후기에 표시하도록 안내하세요.\n"
-            "※ 요일·시간대는 보유 데이터가 월 단위라서 일반적인 SNS 운영 관행을 참고로 제시하는 것이며, 단정하지 말고 '추천' 톤으로 쓰세요.\n"
+            "※ 발행 시점(요일·월·행사 전 발행일)은 '[발행 타이밍 근거]'가 주어지면 그 수치를 우선 사용하고, 근거 수치(예: 주말이 평일의 N배)를 한 줄로 인용하세요. "
+            "근거에 '다가오는 행사'가 있으면 그 날짜를 기준으로 '○월 ○일까지 발행'처럼 구체적인 날짜를 쓰세요. "
+            "시각(몇 시)은 보유 데이터에 없으니 일반적인 SNS 운영 관행을 참고로 '추천' 톤으로만 쓰고, 근거가 없을 때는 요일·시간대도 단정하지 마세요.\n"
         )
         user_prompt = (
             f"[검색 관심도 데이터]\n{facts}\n"
             f"[창원 인구 요약]\n{pop_text}\n\n"
+            f"{timing_block}"
             f"{prod_text}"
             f"위 데이터를 바탕으로 {user_ask} 에 맞는 SNS 콘텐츠 기획안을 만들어 주세요."
         )
@@ -113,6 +126,7 @@ def content_plan(req: ContentPlanRequest):
                 "최고관심업종": top,
                 "업종간격차": gap,
             },
+            "timing_basis": timing_text or None,
             "plan": plan,
         }
 
