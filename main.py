@@ -1,8 +1,8 @@
 """나만의 AI 비서 — FastAPI 앱 시작점.
 
 여기서는 앱을 만들고 설정(CORS·오류 안내)과 API 경로(routers)만 붙여요.
-  routers/   : API 경로 (data · population · chat · agent · conversations · content_plan)
-  services/  : 계산·외부 연동 (summary · population · llm · agent_tools)
+  routers/   : API 경로 (data · population · search_trend · chat · agent · conversations · content_plan)
+  services/  : 계산·외부 연동 (summary · population · search_trend · timing · llm · agent_tools)
   config.py  : 환경변수 설정 / schemas.py : 요청 모델 / errors.py : 한글 오류 안내
 실행: uvicorn main:app --reload
 """
@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS
 from errors import validation_error_handler
-from routers import agent, chat, content_plan, conversations, data, population
+from routers import agent, chat, content_plan, conversations, data, population, search_trend
 
 app = FastAPI(title="나만의 AI 비서")
 
@@ -33,6 +33,7 @@ def read_root():
 
 app.include_router(data.router)
 app.include_router(population.router)
+app.include_router(search_trend.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)
 app.include_router(agent.router)
