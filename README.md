@@ -279,6 +279,16 @@ Firestore는 "컬렉션(서랍) 안에 문서(카드)를 넣는" 데이터베이
 |---|---|
 | ![요약](docs/images/30_search_trend_summary_cafe.png) | ![추천](docs/images/31_content_plan_timing_basis.png) |
 
+**④ 배포 서버에서도 동작 확인** — Render에 네이버 키(값은 가림)를 등록하고 배포한 뒤, 배포 서버에서 같은 흐름을 다시 확인했습니다.
+
+| Render 환경변수 (키 이름만, 값 가림) | 배포 서버 refresh (3,288건) |
+|---|---|
+| ![Render 환경변수](docs/images/34_render_env_naver_keys.png) | ![배포 refresh](docs/images/35_render_search_trend_refresh.png) |
+
+| 배포 서버 summary | 배포 서버 콘텐츠 추천 (`timing_basis` 포함) |
+|---|---|
+| ![배포 summary](docs/images/36_render_search_trend_summary.png) | ![배포 추천](docs/images/37_render_content_plan_timing_basis.png) |
+
 > 값은 '기간 내 최고=100'인 **상대지수**로, 방문·매출이 아니라 관심의 흐름입니다. 비밀키는 `.env`/환경변수로만 관리하며 위 화면에는 나타나지 않습니다.
 
 ---
