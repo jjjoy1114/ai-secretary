@@ -5,8 +5,10 @@ from datetime import datetime, timedelta, timezone
 
 from config import SUMMARY_RECENT_DAYS
 from firebase_config import db
+from services.cache import ttl_cache
 
 
+@ttl_cache
 def build_summary(days=None):
     """days: 추세 비교 기간(일). 안 주면 환경변수 SUMMARY_RECENT_DAYS(기본 30)를 써요."""
     days = days or SUMMARY_RECENT_DAYS
@@ -22,15 +24,26 @@ def build_summary(days=None):
     for r in rows:
         industries.setdefault(r["memo"], []).append(r)
 
+    # 추세 비교 기준일 = 전체 데이터의 가장 최근 날짜 (모든 업종을 같은 기간으로 비교)
+    end_date = datetime.strptime(dates[-1], "%Y-%m-%d").date()
+    recent_start = end_date - timedelta(days=days)         # 최근 N일: (recent_start, end_date]
+    previous_start = end_date - timedelta(days=2 * days)   # 그 앞 N일: (previous_start, recent_start]
+
     def summarize(items):
         items = sorted(items, key=lambda r: r["date"])
         values = [r["value"] for r in items]
         n = len(values)
         avg = round(sum(values) / n, 1)
-        recent = values[-days:]
-        previous = values[-2 * days:-days] if n >= 2 * days else values[:-days]
+        # '개수'가 아니라 실제 날짜 범위로 최근/이전 구간을 나눠요 (날짜가 비어 있어도 정확)
+        recent, previous = [], []
+        for r in items:
+            d = datetime.strptime(r["date"], "%Y-%m-%d").date()
+            if d > recent_start:
+                recent.append(r["value"])
+            elif d > previous_start:
+                previous.append(r["value"])
         trend = "유지"
-        if previous:
+        if recent and previous:
             r_avg = sum(recent) / len(recent)
             p_avg = sum(previous) / len(previous)
             if r_avg > p_avg * 1.05:
@@ -48,7 +61,8 @@ def build_summary(days=None):
     return {
         "period": f"{dates[0]} ~ {dates[-1]}",
         "count": len(rows),
-        "recent_days": days,      # 추세를 비교한 기간(최근 N일 vs 그 앞 N일)
+        "recent_days": days,      # 추세를 비교한 기간(최근 N일 vs 그 앞 N일, 실제 날짜 기준)
+        "trend_basis": f"{recent_start + timedelta(days=1)} ~ {end_date} vs {previous_start + timedelta(days=1)} ~ {recent_start}",
         "generated_at": datetime.now(timezone(timedelta(hours=9))).isoformat(timespec="seconds"),  # 요약을 만든 시각(KST)
         "unit": "네이버 데이터랩 상대지수(0~100, 최고=100)",
         "by_industry": {name: summarize(items) for name, items in industries.items()},
@@ -67,6 +81,7 @@ def summary_to_text(summary):
     return "\n".join(lines)
 
 
+@ttl_cache
 def build_statistics():
     """(보너스) 추가 통계 지표 — 업종별 월별 평균(그래프용) + 변동성·격차."""
     rows = [d.to_dict() for d in db.collection("data").stream()]

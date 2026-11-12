@@ -216,8 +216,18 @@
   </div>
 </div>
 
+<script src="config.js"></script>
 <script>
-  const API = "https://ai-secretary-07fk.onrender.com";  // ★ 배포 시 이 주소만 Render 주소로 교체
+  // 백엔드 주소 정하기 (위에 있을수록 우선): ① 주소창 ?api=... → ② localhost로 열었을 때 로컬 서버 → ③ config.js 의 API_URL
+  // 주소를 바꾸고 싶으면 index.html이 아니라 config.js 만 고치면 돼요.
+  const API = (() => {
+    const cfg = window.APP_CONFIG || {};
+    let fromUrl = null;
+    try { fromUrl = new URLSearchParams(location.search).get("api"); } catch (e) {}
+    if (fromUrl && /^https?:\/\//.test(fromUrl)) return fromUrl.replace(/\/+$/, "");
+    if (["localhost", "127.0.0.1"].includes(location.hostname)) return cfg.LOCAL_API_URL || "http://localhost:8000";
+    return (cfg.API_URL || "https://ai-secretary-07fk.onrender.com").replace(/\/+$/, "");
+  })();
   let conversationId = null;
   let chart = null;
 

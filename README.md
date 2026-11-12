@@ -140,11 +140,12 @@ Firestore는 "컬렉션(서랍) 안에 문서(카드)를 넣는" 데이터베이
 ```
 ai-secretary/
 ├─ main.py             # 앱 시작점 — CORS·오류 안내 설정 후 routers/를 붙이기만 함
-├─ config.py           # 환경변수 설정 (CORS·추세 기간·토큰 상한)
+├─ config.py           # 환경변수 설정 (CORS·추세 기간·토큰 상한·캐시 시간)
+├─ config.js           # 프론트엔드 설정 — 백엔드 주소(배포·로컬)를 이 파일에서만 관리
 ├─ schemas.py          # 요청 모델 (입력 검증, Pydantic)
-├─ errors.py           # 입력 오류를 한글로 안내
+├─ errors.py           # 입력 오류를 한글로 안내 + 서버 내부 오류는 로그에만 남기고 화면엔 안내 문구만
 ├─ routers/            # API 경로: data · population · chat · agent · conversations · content_plan · search_trend
-├─ services/           # 계산·외부 연동: summary · population · llm · agent_tools · search_trend · timing
+├─ services/           # 계산·외부 연동: summary · population · llm · agent_tools · search_trend · timing · cache
 ├─ firebase_config.py  # Firestore 연결 (DB 연결은 이 한 곳에서만)
 ├─ kosis_client.py     # KOSIS 인구 API 호출
 ├─ naver_client.py     # 네이버 데이터랩 검색어트렌드 API 호출
@@ -165,14 +166,14 @@ ai-secretary/
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/` | 서버 상태 확인 |
-| GET · POST | `/api/data` | 데이터 목록 조회 · 추가 |
+| GET · POST | `/api/data` | 데이터 목록 조회(**날짜 최신순**, `?memo=업종`·`?limit=1~2000`) · 추가 |
 | PUT · DELETE | `/api/data/{doc_id}` | 데이터 수정 · 삭제 |
 | GET | `/api/data/summary` | 업종별 요약(기간·개수·평균·추세). 선택 쿼리 `?days=N`(1~365, 기본 30), 응답의 `recent_days`·`generated_at`로 비교 기간과 생성 시각 확인 |
 | GET | `/api/data/statistics` | 추가 통계(변동성·업종 간 격차) — 보너스 B |
 | POST | `/api/population/refresh` | KOSIS 인구 최신화(같은 달은 덮어쓰기) |
 | GET | `/api/population` · `/api/population/summary` | 인구 목록 · 요약(최신값·1년 변화) |
 | POST | `/api/chat` | 요약 주입 AI 대화 + 자동 저장 |
-| GET · POST | `/api/conversations` | 대화 목록 · 저장 |
+| GET · POST | `/api/conversations` | 대화 목록(**최신순, 기본 최근 50개**, `?limit=1~200`) · 저장 |
 | GET · DELETE | `/api/conversations/{conv_id}` | 대화 불러오기 · 삭제 |
 | POST | `/api/agent` | GPT 도구 호출 에이전트 — 보너스 A |
 | POST | `/api/content-plan` | 콘텐츠 기획안 + 롱테일 키워드 + 리뷰 확보 아이디어 + 발행 타이밍 근거 |
@@ -376,7 +377,7 @@ MCP 서버는 GPT 키를 직접 쓰지 않고 **이미 배포된 백엔드(Rende
 pip install -r requirements.txt
 # 3) 백엔드 실행  →  http://127.0.0.1:8000/docs (Swagger)
 uvicorn main:app --reload
-# 4) 프론트엔드: index.html 을 브라우저로 열기
+# 4) 프론트엔드: index.html 을 브라우저로 열기 (localhost로 열면 http://localhost:8000 서버를 자동 사용, 설정은 config.js)
 ```
 
 **MCP 서버(멀티채널) 사용**
@@ -400,9 +401,10 @@ claude mcp list                                   # ai-secretary ✓ Connected
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | ✅ (배포) | Firebase 서비스계정 키 **JSON 전체 내용** |
 | `ALLOWED_ORIGINS` | 선택 | CORS 허용 주소(쉼표로 여러 개). 비우면 `*`(모두 허용). **배포(Render)에는 Vercel 주소만 넣어 제한**했습니다 |
 | `SUMMARY_RECENT_DAYS` | 선택 | 추세 비교 기간 (기본 `30`) |
+| `CACHE_TTL_SECONDS` | 선택 | 요약·통계 계산 결과를 기억해 두는 시간(초, 기본 `60`, `0`이면 끔). 데이터를 추가·수정·삭제하면 바로 비워져요 |
 | `MAX_TOKENS` | 선택 | GPT 답변 길이 상한 (기본 `6000`, `0`이면 제한 없음). `gpt-5-mini`는 답하기 전 "생각"에도 토큰을 써서 너무 작게 잡으면 빈 답변이 옵니다 |
 
-- **프론트→백엔드 주소** — 프론트는 빌드 과정이 없는 정적 HTML이라 환경변수 대신 `index.html` 위쪽의 `const API = "…"` 한 줄로 관리합니다(배포 시 Render 주소로 변경). Vercel(프론트)에는 키가 필요 없습니다.
+- **프론트→백엔드 주소** — 프론트는 빌드 과정이 없는 정적 HTML이라 환경변수 대신 **`config.js`의 `API_URL`(배포) / `LOCAL_API_URL`(로컬)** 로 관리합니다. 주소가 바뀌면 `index.html`이 아니라 `config.js`만 고치면 됩니다. `localhost`로 열면 로컬 서버를, 주소창에 `?api=https://…`를 붙이면 그 주소를 우선 사용합니다. Vercel(프론트)에는 키가 필요 없습니다.
 - **견본 파일** — `.env.example`을 복사해 `.env`로 쓰세요(`.env`는 GitHub에 올라가지 않습니다).
 
 **Render 환경변수 설정 순서** — ① Render 대시보드 → 서비스(`ai-secretary`) → **Environment** → ② **Add variable**로 `CODYSSEY_API_KEY`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `KOSIS_API_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `ALLOWED_ORIGINS`(Vercel 주소), `MAX_TOKENS`(`6000`) 입력 → ③ **Save, rebuild, and deploy** 후 Deploys 탭에서 `Live` 확인
@@ -424,6 +426,22 @@ claude mcp list                                   # ai-secretary ✓ Connected
 **실제 운영 시 개선 방향** — ① 로그인/토큰(JWT, Firebase Auth 등)으로 쓰기(POST·PUT·DELETE) 보호 ② GPT 호출 엔드포인트(`/api/chat`·`/api/content-plan`)에 요청 제한(rate limit) ③ 운영 환경에서는 `/docs`를 비공개로 하거나 인증 뒤에 배치 ④ 키는 지금처럼 환경변수로만 관리.
 
 > 요약: 현재의 개방은 '막지 못한 것'이 아니라 **데모·평가를 위한 의도적 설정**이며, CORS 제한과 키 관리는 이미 적용되어 있습니다.
+
+---
+
+## 🔧 동료평가 반영 (수정 · 보완)
+
+동료평가에서 받은 보완점을 코드와 대조해 모두 확인했고, 아래처럼 고쳤습니다.
+
+| 지적 사항 | 원인(코드 확인) | 수정 내용 |
+|---|---|---|
+| 정렬 기준이 없어 새 데이터가 목록에 바로 안 보일 수 있음 | `GET /api/data`가 정렬 없이 `limit`만 적용 | **날짜 내림차순**으로 정렬해 최신 데이터가 맨 위에 옵니다. 업종 필터(`?memo=`)는 Firestore 복합 색인 없이 동작하도록 가져온 뒤 정렬합니다. `limit`은 1~2000으로 제한 |
+| 추세가 날짜 범위가 아니라 "최근 N개" 기준 | `values[-days:]`처럼 개수로 자름 | 가장 최근 날짜에서 N일 전까지를 **실제 날짜 범위**로 나눠 비교합니다(날짜가 비어 있어도 정확). 응답에 비교한 기간(`trend_basis`)을 함께 표시 |
+| 서버 내부 오류 메시지 노출 | `예외이름: 내용`, `.env` 키 이름, 외부 API 응답 본문이 화면에 그대로 전달 | 자세한 원인은 **서버 로그에만** 남기고(`errors.server_error`) 화면에는 안내 문구만 보냅니다. 예상 못 한 오류도 마지막 안전망(`unhandled_error_handler`)이 같은 방식으로 처리 |
+| 프론트엔드 API 주소 하드코딩 | `index.html`에 Render 주소가 박혀 있음 | **`config.js`** 로 분리. localhost로 열면 로컬 서버를 자동 사용하고, `?api=`로 임시 변경도 가능 |
+| 데이터가 늘면 전체 조회로 비용·성능 문제 | 질문마다 `data` 컬렉션 전체 + 인구 전체 조회, 대화 목록도 전체 조회 | 요약·통계·인구 요약 결과를 **60초 캐시**(데이터 변경 시 즉시 비움). 대화 목록은 **최신순 최근 50개만** Firestore에서 조회 |
+
+**한계와 향후 개선** — 캐시는 서버 메모리에 저장하므로 서버가 다시 시작되면 비워지고, 서버를 여러 대로 늘리면 서버마다 따로 기억합니다(이 과제는 서버 1대 기준). 데이터가 수만 건 이상으로 커지면 요약 결과를 Firestore에 미리 계산해 저장하거나, 날짜 범위 조건으로 필요한 구간만 읽는 방식으로 바꾸는 것이 다음 단계입니다. 프론트의 그래프·내보내기는 전체 데이터를 한 번에 불러오므로, 데이터가 커지면 페이지 단위 조회가 필요합니다.
 
 ---
 

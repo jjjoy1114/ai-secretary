@@ -2,6 +2,7 @@
 
   ALLOWED_ORIGINS    : CORS 허용 주소(쉼표로 여러 개). 기본 "*" = 모두 허용(데모·채점용)
   SUMMARY_RECENT_DAYS: 추세 비교에 쓰는 '최근 N일' (기본 30 → 최근30일 vs 그 앞 30일)
+  CACHE_TTL_SECONDS  : 요약·통계 계산 결과를 기억해 두는 시간(초). 기본 60, 0 = 캐시 끔 (Firestore 읽기 횟수·비용 절감)
   MAX_TOKENS         : GPT 답변 길이 상한(비용 보호). 기본 6000, 0 = 제한 안 함
                        (gpt-5-mini는 "생각"에도 토큰을 써서 너무 작으면 빈 답변이 와요)
 """
@@ -26,6 +27,7 @@ def _env_int(name, default):
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()] or ["*"]
 SUMMARY_RECENT_DAYS = max(1, _env_int("SUMMARY_RECENT_DAYS", 30))
 MAX_TOKENS = _env_int("MAX_TOKENS", 6000)
+CACHE_TTL_SECONDS = max(0, _env_int("CACHE_TTL_SECONDS", 60))
 
 
 def token_limit():

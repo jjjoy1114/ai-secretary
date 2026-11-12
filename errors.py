@@ -1,5 +1,5 @@
 """입력 검사에 걸렸을 때 영어 대신 알기 쉬운 한글로 알려주기."""
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -39,3 +39,16 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         status_code=422,
         content={"detail": "입력값을 확인해 주세요 → " + " / ".join(problems), "errors": problems},
     )
+
+
+def server_error(where, exc, status_code=500, message="서버에서 문제가 생겼어요. 잠시 후 다시 시도해 주세요."):
+    """자세한 원인은 서버 기록(Render Logs)에만 남기고, 화면에는 알기 쉬운 안내만 돌려줘요.
+    (예외 이름·키 이름·외부 서버 응답 같은 내부 정보가 사용자에게 보이지 않게 해요)"""
+    logger.exception("%s 실패: %s", where, type(exc).__name__)
+    return HTTPException(status_code=status_code, detail=message)
+
+
+async def unhandled_error_handler(request: Request, exc: Exception):
+    """미처리 오류의 마지막 안전망 — 내부 내용 없이 안내 문구만 보내요."""
+    logger.exception("처리되지 않은 오류 %s %s: %s", request.method, request.url.path, type(exc).__name__)
+    return JSONResponse(status_code=500, content={"detail": "서버에서 문제가 생겼어요. 잠시 후 다시 시도해 주세요."})

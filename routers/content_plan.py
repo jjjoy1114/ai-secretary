@@ -4,6 +4,7 @@ GPT에 주입해 SNS 콘텐츠·마케팅 기획안을 자동 생성한다. (SNS
 from fastapi import APIRouter, HTTPException
 
 from config import logger, token_limit
+from errors import server_error
 from schemas import ContentPlanRequest
 from services.llm import MODEL, get_client
 from services.population import build_population_summary, population_summary_to_text
@@ -133,4 +134,4 @@ def content_plan(req: ContentPlanRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+        raise server_error("콘텐츠 기획안", e, message="AI 답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.")
