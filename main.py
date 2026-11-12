@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import ALLOWED_ORIGINS
-from errors import validation_error_handler
+from errors import unhandled_error_handler, validation_error_handler
 from routers import agent, chat, content_plan, conversations, data, population, search_trend
 
 app = FastAPI(title="나만의 AI 비서")
@@ -24,6 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(Exception, unhandled_error_handler)
 
 
 @app.get("/")

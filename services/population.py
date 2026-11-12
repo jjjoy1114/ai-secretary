@@ -7,6 +7,7 @@ from datetime import datetime
 
 from firebase_config import db
 from kosis_client import fetch_changwon_population
+from services.cache import clear_cache, ttl_cache
 
 
 def refresh_population_data(months):
@@ -27,6 +28,7 @@ def refresh_population_data(months):
         "latest_month": rows[-1]["date"] if rows else None,
         "count": len(rows),
     })
+    clear_cache()   # 인구 데이터가 바뀌었으니 기억해 둔 요약을 지워요
     return {
         "message": "KOSIS에서 최신 인구 데이터를 받아 저장했어요",
         "received": len(rows),
@@ -41,6 +43,7 @@ def list_population():
     return sorted((d.to_dict() for d in docs), key=lambda r: r["date"])
 
 
+@ttl_cache
 def build_population_summary():
     rows = list_population()
     if not rows:

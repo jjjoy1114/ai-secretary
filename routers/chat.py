@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException
 
 from config import token_limit
+from errors import server_error
 from schemas import ChatRequest
 from services.llm import MODEL, get_client, load_history, save_turn
 from services.population import build_population_summary, population_summary_to_text
@@ -12,7 +13,7 @@ router = APIRouter()
 
 # ============================================================
 # AI 채팅 API — 요약을 GPT에 주입해서 대화 + 자동 저장
-#   * 문제 원인을 화면에 그대로 보여주도록 try/except 로 감쌈
+#   * 문제 원인은 서버 기록에만 남기고, 화면에는 안내 문구만 보여줌
 # ============================================================
 @router.post("/api/chat")
 def chat(req: ChatRequest):
@@ -54,5 +55,4 @@ def chat(req: ChatRequest):
     except HTTPException:
         raise
     except Exception as e:
-        # 진짜 원인을 화면(Response)에 그대로 보여줌
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+        raise server_error("AI 채팅", e, message="AI 답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.")

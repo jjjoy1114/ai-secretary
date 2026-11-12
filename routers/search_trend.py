@@ -1,6 +1,7 @@
 """네이버 검색관심도(3년) API — 발행 타이밍 근거 (NAVER API HUB 데이터랩 검색어트렌드 연동)."""
 from fastapi import APIRouter, HTTPException
 
+from errors import server_error
 from naver_client import NaverError
 from services.search_trend import load_timing_summary, refresh_search_trend
 
@@ -14,7 +15,7 @@ def refresh():
     try:
         return refresh_search_trend()
     except NaverError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        raise server_error("검색관심도 갱신", e, 502, "검색관심도 데이터를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.")
 
 
 @router.get("/api/search-trend/summary")

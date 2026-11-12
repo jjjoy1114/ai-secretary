@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException
 
 from config import token_limit
+from errors import server_error
 from schemas import ChatRequest
 from services.agent_tools import AGENT_TOOLS, run_agent_tool
 from services.llm import MODEL, get_client, load_history, save_turn
@@ -70,4 +71,4 @@ def agent(req: ChatRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+        raise server_error("AI 에이전트", e, message="AI 답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.")

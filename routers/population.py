@@ -1,6 +1,7 @@
 """창원시 인구 API — KOSIS(국가통계포털) 공공데이터 연동."""
 from fastapi import APIRouter, HTTPException
 
+from errors import server_error
 from kosis_client import KosisError
 from services.population import build_population_summary, list_population, refresh_population_data
 
@@ -13,7 +14,7 @@ def refresh_population(months: int = 60):
     try:
         return refresh_population_data(months)
     except KosisError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        raise server_error("인구 데이터 갱신", e, 502, "인구 데이터를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.")
 
 
 @router.get("/api/population")

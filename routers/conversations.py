@@ -1,7 +1,8 @@
 """대화기록 API — 저장된 대화를 목록/불러오기/저장/삭제."""
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from google.cloud import firestore
 
 from firebase_config import db
 from schemas import ConversationCreate
@@ -9,10 +10,13 @@ from schemas import ConversationCreate
 router = APIRouter()
 
 
-# (목록) 저장된 대화 목록 보기 (최신순, 제목=첫 질문)
+# (목록) 저장된 대화 목록 보기 (최신순, 제목=첫 질문) — 최근 limit개만 가져와요 (대화가 쌓여도 읽기 비용이 일정)
 @router.get("/api/conversations")
-def list_conversations():
-    docs = db.collection("conversations").stream()
+def list_conversations(limit: int = Query(default=50, ge=1, le=200)):
+    docs = (db.collection("conversations")
+            .order_by("updated_at", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+            .stream())
     result = []
     for doc in docs:
         d = doc.to_dict()
@@ -24,7 +28,6 @@ def list_conversations():
             "updated_at": d.get("updated_at"),
             "count": len(msgs),
         })
-    result.sort(key=lambda r: r.get("updated_at") or "", reverse=True)
     return {"count": len(result), "items": result}
 
 
